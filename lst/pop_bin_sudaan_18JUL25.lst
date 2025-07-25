@@ -1,0 +1,310 @@
+                   [SUDAAN]Independent correlation structure                  37
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: _ONE_
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: BGID
+ 
+ 
+Number of zero responses     : 2021834
+Number of non-zero responses : 1779109
+ 
+Independence parameters have converged in 6 iterations.
+ 
+Number of observations read       :3800943    Weighted count:  3800943
+Observations used in the analysis :3800943    Weighted count:  3800943
+Denominator degrees of freedom    :    748
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File POP contains 633602 Clusters
+633602 clusters were used to fit the model
+Maximum cluster size is  33 records
+Minimum cluster size is   3 records
+ 
+ 
+Sample and Population Counts for Response Variable Y_BIN_GFR
+Based on observations used in the analysis
+0:  Sample Count  2021834    Population Count   2021834
+1:  Sample Count  1779109    Population Count   1779109
+ 
+R-Square for dependent variable Y_BIN_GFR (Cox & Snell, 1989): 0.118125
+ 
+-2 * Normalized Log-Likelihood with Intercepts Only : 5253715.08
+-2 * Normalized Log-Likelihood Full Model           : 4775917.68
+Approximate Chi-Square (-2 * Log-L Ratio)           : 477797.40
+Degrees of Freedom                                  :        6
+ 
+Note: The approximate Chi-Square is not adjusted for clustering.
+      Refer to hypothesis test table for adjusted test.
+                                                                                
+                                                                                
+                                                                                
+Date: 07-18-2025                     SUDAAN                          Page:  1   
+Time: 11:40:39                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Logit                                                            
+Response variable Y_BIN_GFR: Y_BIN_GFR                                          
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                   -3.14         0.03        -3.18        -3.09        
+X17                          0.45         0.01         0.44         0.47        
+X12                          0.01         0.00         0.00         0.01        
+X18                          0.08         0.01         0.07         0.09        
+Y_BMI                        0.00         0.00         0.00         0.00        
+AGE_STRAT_NEW                0.44         0.01         0.43         0.45        
+X6                           0.13         0.00         0.13         0.13        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 07-18-2025                     SUDAAN                          Page:  2   
+Time: 11:40:39                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Logit                                                            
+Response variable Y_BIN_GFR: Y_BIN_GFR                                          
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                 -125.13     0.0000                                    
+X17                         76.26     0.0000                                    
+X12                          2.65     0.0083                                    
+X18                         15.15     0.0000                                    
+Y_BMI                        2.80     0.0053                                    
+AGE_STRAT_NEW               74.32     0.0000                                    
+X6                         370.36     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 07-18-2025                     SUDAAN                          Page:  3   
+Time: 11:40:39                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Logit                                                            
+Response variable Y_BIN_GFR: Y_BIN_GFR                                          
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7     37499.38     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     43144.05     0.0000                         
+INTERCEPT                     1     15656.70     0.0000                         
+X17                           1      5815.85     0.0000                         
+X12                           1         7.01     0.0083                         
+X18                           1       229.45     0.0000                         
+Y_BMI                         1         7.82     0.0053                         
+AGE_STRAT_NEW                 1      5523.17     0.0000                         
+X6                            1    137164.35     0.0000                         
+-------------------------------------------------------                         
+                                                                                
+                                                                                
+                                                                                
+Date: 07-18-2025                     SUDAAN                          Page:  4   
+Time: 11:40:39                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Logit                                                            
+Response variable Y_BIN_GFR: Y_BIN_GFR                                          
+by: Independent Variables and Effects.                                          
+                                                                                
+-----------------------------------------------------------                     
+Independent                                                                     
+  Variables and                     Lower 95%    Upper 95%                      
+  Effects              Odds Ratio   Limit OR     Limit OR                       
+-----------------------------------------------------------                     
+Intercept                    0.04         0.04         0.05                     
+X17                          1.57         1.56         1.59                     
+X12                          1.01         1.00         1.01                     
+X18                          1.09         1.07         1.10                     
+Y_BMI                        1.00         1.00         1.00                     
+AGE_STRAT_NEW                1.55         1.54         1.57                     
+X6                           1.13         1.13         1.13                     
+-----------------------------------------------------------                     
+                   [SUDAAN]Exchangeable correlation structure                 42
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: _ONE_
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: BGID
+    Cluster Identification Variables: STRAT_RECODED BGID
+        HHID
+ 
+ 
+Number of zero responses     : 2021834
+Number of non-zero responses : 1779109
+ 
+Independence parameters have converged in 6 iterations.
+ 
+Step 1 parameters have converged in 5 iterations.
+ 
+Parameters have converged in 1 step.
+ 
+Number of observations read       :3800943    Weighted count:  3800943
+Observations used in the analysis :3800943    Weighted count:  3800943
+Denominator degrees of freedom    :    748
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File POP contains 633602 Clusters
+633602 clusters were used to fit the model
+Maximum cluster size is  33 records
+Minimum cluster size is   3 records
+ 
+ 
+Sample and Population Counts for Response Variable Y_BIN_GFR
+Based on observations used in the analysis
+0:  Sample Count  2021834    Population Count   2021834
+1:  Sample Count  1779109    Population Count   1779109
+                                                                                
+                                                                                
+                                                                                
+Date: 07-18-2025                     SUDAAN                          Page:  1   
+Time: 11:41:24                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Exchangeable                                              
+Link Function: Logit                                                            
+Response variable Y_BIN_GFR: Y_BIN_GFR                                          
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                   -3.16         0.03        -3.21        -3.11        
+X17                          0.46         0.01         0.44         0.47        
+X12                          0.01         0.00         0.00         0.01        
+X18                          0.07         0.00         0.06         0.08        
+Y_BMI                        0.00         0.00         0.00         0.00        
+AGE_STRAT_NEW                0.43         0.01         0.42         0.44        
+X6                           0.13         0.00         0.12         0.13        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 07-18-2025                     SUDAAN                          Page:  2   
+Time: 11:41:24                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Exchangeable                                              
+Link Function: Logit                                                            
+Response variable Y_BIN_GFR: Y_BIN_GFR                                          
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                 -121.53     0.0000                                    
+X17                         75.59     0.0000                                    
+X12                          2.22     0.0265                                    
+X18                         17.38     0.0000                                    
+Y_BMI                        8.77     0.0000                                    
+AGE_STRAT_NEW               65.28     0.0000                                    
+X6                         399.75     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 07-18-2025                     SUDAAN                          Page:  3   
+Time: 11:41:24                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Exchangeable                                              
+Link Function: Logit                                                            
+Response variable Y_BIN_GFR: Y_BIN_GFR                                          
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7     37019.00     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     42506.82     0.0000                         
+INTERCEPT                     1     14769.57     0.0000                         
+X17                           1      5713.40     0.0000                         
+X12                           1         4.94     0.0265                         
+X18                           1       302.20     0.0000                         
+Y_BMI                         1        76.87     0.0000                         
+AGE_STRAT_NEW                 1      4261.31     0.0000                         
+X6                            1    159797.07     0.0000                         
+-------------------------------------------------------                         
+                                                                                
+                                                                                
+                                                                                
+Date: 07-18-2025                     SUDAAN                          Page:  4   
+Time: 11:41:24                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Exchangeable                                              
+Link Function: Logit                                                            
+Response variable Y_BIN_GFR: Y_BIN_GFR                                          
+by: Independent Variables and Effects.                                          
+                                                                                
+-----------------------------------------------------------                     
+Independent                                                                     
+  Variables and                     Lower 95%    Upper 95%                      
+  Effects              Odds Ratio   Limit OR     Limit OR                       
+-----------------------------------------------------------                     
+Intercept                    0.04         0.04         0.04                     
+X17                          1.58         1.56         1.60                     
+X12                          1.01         1.00         1.01                     
+X18                          1.08         1.07         1.08                     
+Y_BMI                        1.00         1.00         1.00                     
+AGE_STRAT_NEW                1.54         1.52         1.56                     
+X6                           1.13         1.13         1.13                     
+-----------------------------------------------------------                     

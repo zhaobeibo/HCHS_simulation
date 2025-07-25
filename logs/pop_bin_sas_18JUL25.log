@@ -1,0 +1,361 @@
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+756   
+757   *****************************************************************************************
+757 ! ****************
+758   
+759           PROGRAM NAME: pop_bin_sas.sas
+760           SOURCE:
+761           DESCRIPTION:   Fit the binary model on the population data using SAS PROC GENMOD
+761 ! and
+762                               get the true coefficients for inference
+763           VERSION CONTROL:
+764                               27mar25: create file
+765   *****************************************************************************************
+765 ! ****************;
+766   
+767   * Set system options;
+768   options mergenoby=warn ls=95 ps=54 nodate mprint formchar="|----|+|---+=|-/\<>*";
+769   
+770   * Import .csv dataset;
+771   proc import datafile="&popfile" out=pop_data(keep=bgid hhid subid y_bmi y_gfr y_bin_gfr
+771 ! x12
+772           x17 x18 x14 x6 age_base strat hisp_strat v_num) dbms=csv replace;
+773           getnames=yes;
+774           guessingrows=100;
+775   run;
+
+776    /**********************************************************************
+777    *   PRODUCT:   SAS
+778    *   VERSION:   9.4
+779    *   CREATOR:   External File Interface
+780    *   DATE:      18JUL25
+781    *   DESC:      Generated SAS Datastep Code
+782    *   TEMPLATE SOURCE:  (None Specified.)
+783    ***********************************************************************/
+784       data WORK.POP_DATA (keep=bgid hhid subid y_bmi y_gfr y_bin_gfr x12         x17 x18
+784 ! x14 x6 age_base strat hisp_strat v_num)   ;
+785       %let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+786       infile 'J:\HCHS\STATISTICS\GRAS\Beibo\Computing
+786 ! Requests\HCHS_simulation\data\raw\pop\population_3visits_Dec2024.csv' delimiter = ','
+786 ! MISSOVER DSD lrecl=32767 firstobs=2 ;
+787          informat strat best32. ;
+788          informat BGid best32. ;
+789          informat hhid best32. ;
+790          informat subid best32. ;
+791          informat v_num best32. ;
+792          informat hisp_strat $4. ;
+793          informat age_base best32. ;
+794          informat age_strat $5. ;
+795          informat x0 best32. ;
+796          informat x1 best32. ;
+797          informat x2 best32. ;
+798          informat x3 best32. ;
+799          informat x4 best32. ;
+800          informat x6 best32. ;
+801          informat x8 best32. ;
+802          informat x12 best32. ;
+803          informat x13 best32. ;
+804          informat x14 best32. ;
+805          informat x15 best32. ;
+806          informat x17 best32. ;
+807          informat x18 best32. ;
+808          informat y_bmi best32. ;
+809          informat y_gfr best32. ;
+810          informat y_bin_gfr best32. ;
+811          format strat best12. ;
+812          format BGid best12. ;
+813          format hhid best12. ;
+814          format subid best12. ;
+815          format v_num best12. ;
+816          format hisp_strat $4. ;
+817          format age_base best12. ;
+818          format age_strat $5. ;
+819          format x0 best12. ;
+820          format x1 best12. ;
+821          format x2 best12. ;
+822          format x3 best12. ;
+823          format x4 best12. ;
+824          format x6 best12. ;
+825          format x8 best12. ;
+826          format x12 best12. ;
+827          format x13 best12. ;
+828          format x14 best12. ;
+829          format x15 best12. ;
+830          format x17 best12. ;
+831          format x18 best12. ;
+832          format y_bmi best12. ;
+833          format y_gfr best12. ;
+834          format y_bin_gfr best12. ;
+835       input
+836                   strat
+837                   BGid
+838                   hhid
+839                   subid
+840                   v_num
+841                   hisp_strat $
+842                   age_base
+843                   age_strat $
+844                   x0
+845                   x1
+846                   x2
+847                   x3
+848                   x4
+849                   x6
+850                   x8
+851                   x12
+852                   x13
+853                   x14
+854                   x15
+855                   x17
+856                   x18
+857                   y_bmi
+858                   y_gfr
+859                   y_bin_gfr
+860       ;
+861       if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+862       run;
+
+NOTE: The infile 'J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\data\raw\pop\population_3visits_Dec2024.csv' is:
+      
+      Filename=J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\data\raw\pop\population_3visits_Dec2024.csv,
+      RECFM=V,LRECL=32767,
+      File Size (bytes)=632339201,
+      Last Modified=29Nov2024:16:15:54,
+      Create Time=17Jul2025:19:10:58
+
+NOTE: 3800943 records were read from the infile 'J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\data\raw\pop\population_3visits_Dec2024.csv'.
+      The minimum record length was 143.
+      The maximum record length was 177.
+NOTE: The data set WORK.POP_DATA has 3800943 observations and 15 variables.
+NOTE: DATA statement used (Total process time):
+      real time           12.30 seconds
+      cpu time            6.56 seconds
+      
+
+3800943 rows created in WORK.POP_DATA from J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+Requests\HCHS_simulation\data\raw\pop\population_3visits_Dec2024.csv.
+  
+  
+  
+NOTE: WORK.POP_DATA data set was successfully created.
+NOTE: The data set WORK.POP_DATA has 3800943 observations and 15 variables.
+NOTE: PROCEDURE IMPORT used (Total process time):
+      real time           12.51 seconds
+      cpu time            6.62 seconds
+      
+
+863   
+864   * Derive age_strat_new and hisp_strat_new dataset;
+865   data pop;
+866       set pop_data;
+867       age_strat_new = 1*(age_base>=45);
+868       hisp_strat_new = 1*(hisp_strat='TRUE');
+869   
+870       if strat in (1,5) then strat_recoded = 1;
+871       else if strat in (2,6) then strat_recoded = 2;
+872       else if strat in (3,7) then strat_recoded = 3;
+873       else if strat in (4,8) then strat_recoded = 4;
+874   run;
+
+NOTE: There were 3800943 observations read from the data set WORK.POP_DATA.
+NOTE: The data set WORK.POP has 3800943 observations and 18 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.84 seconds
+      cpu time            0.82 seconds
+      
+
+875   
+876   proc sort data = pop; by strat_recoded; run;
+
+NOTE: There were 3800943 observations read from the data set WORK.POP.
+NOTE: The data set WORK.POP has 3800943 observations and 18 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           1.44 seconds
+      cpu time            2.57 seconds
+      
+
+877   
+878   * Macro that fit a SAS GENMOD model with a binary logistic response;
+879   %macro pop_sas(corr=);
+880       options pagesize=60 linesize=80;
+881   
+882       title "[SAS GENMOD] &corr. correlation structure - Binary Model";
+883   
+884       proc genmod data=pop descending;
+885           class subid;
+886           model y_bin_gfr = x17 x12 x18 y_bmi age_strat_new x6 / dist=binomial link=logit;
+887           repeated subject=subid / corr=&corr.;
+888           ods output GEEEmpPEst=betas_&corr._temp;
+889       run;
+890   
+891       * Process and format the output to match SUDAAN format;
+892       data dt_betas.betas_pop_bin_sas_&corr.;
+893           set betas_&corr._temp;
+894           length Parm $ 20;
+895   
+896           * Map parameter names;
+897           if Parm = 'Intercept' then Parm = 'Intercept';
+898           else if Parm = 'x17' then Parm = 'x17';
+899           else if Parm = 'x12' then Parm = 'x12';
+900           else if Parm = 'x18' then Parm = 'x18';
+901           else if Parm = 'y_bmi' then Parm = 'y_bmi';
+902           else if Parm = 'age_strat_new' then Parm = 'age_strat_new';
+903           else if Parm = 'x6' then Parm = 'x6';
+904   
+905           * Rename variables to match SUDAAN output format;
+906           Estimate = Estimate;
+907           Stderr = StdErr;
+908           ProbZ = ProbZ;
+909           t = ZValue;
+910   
+911           keep Parm Estimate Stderr ProbZ t;
+912       run;
+913   
+914       * Clean up temporary dataset;
+915       proc datasets library=work nolist;
+916           delete betas_&corr._temp;
+917       quit;
+918   %mend pop_sas;
+919   
+920   * Run SAS GENMOD macro for different correlation structures;
+921   title '[SAS GENMOD] Independent correlation structure - Binary Model';
+922       %pop_sas(corr=ind);
+MPRINT(POP_SAS):   options pagesize=60 linesize=80;
+MPRINT(POP_SAS):   title "[SAS GENMOD] ind correlation structure - Binary 
+Model";
+MPRINT(POP_SAS):   proc genmod data=pop descending;
+MPRINT(POP_SAS):   class subid;
+MPRINT(POP_SAS):   model y_bin_gfr = x17 x12 x18 y_bmi age_strat_new x6 / 
+dist=binomial link=logit;
+MPRINT(POP_SAS):   repeated subject=subid / corr=ind;
+MPRINT(POP_SAS):   ods output GEEEmpPEst=betas_ind_temp;
+MPRINT(POP_SAS):   run;
+NOTE: Class levels for some variables were not printed due to excessive size.
+NOTE: PROC GENMOD is modeling the probability that y_bin_gfr='1'.
+NOTE: Algorithm converged.
+NOTE: Algorithm converged.
+NOTE: The data set WORK.BETAS_IND_TEMP has 7 observations and 7 variables.
+NOTE: PROCEDURE GENMOD used (Total process time):
+      real time           59.94 seconds
+      cpu time            35.82 seconds
+      
+
+MPRINT(POP_SAS):   * Process and format the output to match SUDAAN format;
+MPRINT(POP_SAS):   data dt_betas.betas_pop_bin_sas_ind;
+MPRINT(POP_SAS):   set betas_ind_temp;
+MPRINT(POP_SAS):   length Parm $ 20;
+WARNING: Length of character variable Parm has already been set. 
+         Use the LENGTH statement as the very first statement in the DATA STEP 
+         to declare the length of a character variable.
+MPRINT(POP_SAS):   * Map parameter names;
+MPRINT(POP_SAS):   if Parm = 'Intercept' then Parm = 'Intercept';
+MPRINT(POP_SAS):   else if Parm = 'x17' then Parm = 'x17';
+MPRINT(POP_SAS):   else if Parm = 'x12' then Parm = 'x12';
+MPRINT(POP_SAS):   else if Parm = 'x18' then Parm = 'x18';
+MPRINT(POP_SAS):   else if Parm = 'y_bmi' then Parm = 'y_bmi';
+MPRINT(POP_SAS):   else if Parm = 'age_strat_new' then Parm = 'age_strat_new';
+MPRINT(POP_SAS):   else if Parm = 'x6' then Parm = 'x6';
+MPRINT(POP_SAS):   * Rename variables to match SUDAAN output format;
+MPRINT(POP_SAS):   Estimate = Estimate;
+MPRINT(POP_SAS):   Stderr = StdErr;
+MPRINT(POP_SAS):   ProbZ = ProbZ;
+MPRINT(POP_SAS):   t = ZValue;
+MPRINT(POP_SAS):   keep Parm Estimate Stderr ProbZ t;
+MPRINT(POP_SAS):   run;
+
+NOTE: Variable ZValue is uninitialized.
+NOTE: There were 7 observations read from the data set WORK.BETAS_IND_TEMP.
+NOTE: The data set DT_BETAS.BETAS_POP_BIN_SAS_IND has 7 observations and 5 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(POP_SAS):   * Clean up temporary dataset;
+MPRINT(POP_SAS):   proc datasets library=work nolist;
+MPRINT(POP_SAS):   delete betas_ind_temp;
+MPRINT(POP_SAS):   quit;
+
+NOTE: Deleting WORK.BETAS_IND_TEMP (memtype=DATA).
+NOTE: PROCEDURE DATASETS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+923   
+924   title '[SAS GENMOD] Exchangeable correlation structure - Binary Model';
+925       %pop_sas(corr=exch);
+MPRINT(POP_SAS):   options pagesize=60 linesize=80;
+MPRINT(POP_SAS):   title "[SAS GENMOD] exch correlation structure - Binary 
+Model";
+MPRINT(POP_SAS):   proc genmod data=pop descending;
+MPRINT(POP_SAS):   class subid;
+MPRINT(POP_SAS):   model y_bin_gfr = x17 x12 x18 y_bmi age_strat_new x6 / 
+dist=binomial link=logit;
+MPRINT(POP_SAS):   repeated subject=subid / corr=exch;
+MPRINT(POP_SAS):   ods output GEEEmpPEst=betas_exch_temp;
+MPRINT(POP_SAS):   run;
+NOTE: Class levels for some variables were not printed due to excessive size.
+NOTE: PROC GENMOD is modeling the probability that y_bin_gfr='1'.
+NOTE: Algorithm converged.
+NOTE: Algorithm converged.
+NOTE: The data set WORK.BETAS_EXCH_TEMP has 7 observations and 7 variables.
+NOTE: PROCEDURE GENMOD used (Total process time):
+      real time           57.17 seconds
+      cpu time            43.03 seconds
+      
+
+MPRINT(POP_SAS):   * Process and format the output to match SUDAAN format;
+MPRINT(POP_SAS):   data dt_betas.betas_pop_bin_sas_exch;
+MPRINT(POP_SAS):   set betas_exch_temp;
+MPRINT(POP_SAS):   length Parm $ 20;
+WARNING: Length of character variable Parm has already been set. 
+         Use the LENGTH statement as the very first statement in the DATA STEP 
+         to declare the length of a character variable.
+MPRINT(POP_SAS):   * Map parameter names;
+MPRINT(POP_SAS):   if Parm = 'Intercept' then Parm = 'Intercept';
+MPRINT(POP_SAS):   else if Parm = 'x17' then Parm = 'x17';
+MPRINT(POP_SAS):   else if Parm = 'x12' then Parm = 'x12';
+MPRINT(POP_SAS):   else if Parm = 'x18' then Parm = 'x18';
+MPRINT(POP_SAS):   else if Parm = 'y_bmi' then Parm = 'y_bmi';
+MPRINT(POP_SAS):   else if Parm = 'age_strat_new' then Parm = 'age_strat_new';
+MPRINT(POP_SAS):   else if Parm = 'x6' then Parm = 'x6';
+MPRINT(POP_SAS):   * Rename variables to match SUDAAN output format;
+MPRINT(POP_SAS):   Estimate = Estimate;
+MPRINT(POP_SAS):   Stderr = StdErr;
+MPRINT(POP_SAS):   ProbZ = ProbZ;
+MPRINT(POP_SAS):   t = ZValue;
+MPRINT(POP_SAS):   keep Parm Estimate Stderr ProbZ t;
+MPRINT(POP_SAS):   run;
+
+NOTE: Variable ZValue is uninitialized.
+NOTE: There were 7 observations read from the data set WORK.BETAS_EXCH_TEMP.
+NOTE: The data set DT_BETAS.BETAS_POP_BIN_SAS_EXCH has 7 observations and 5 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.14 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(POP_SAS):   * Clean up temporary dataset;
+MPRINT(POP_SAS):   proc datasets library=work nolist;
+MPRINT(POP_SAS):   delete betas_exch_temp;
+MPRINT(POP_SAS):   quit;
+
+NOTE: Deleting WORK.BETAS_EXCH_TEMP (memtype=DATA).
+NOTE: PROCEDURE DATASETS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+926   
+927   proc printto; run;
+

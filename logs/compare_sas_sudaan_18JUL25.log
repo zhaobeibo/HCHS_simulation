@@ -1,0 +1,976 @@
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           1.24 seconds
+      cpu time            0.03 seconds
+      
+
+20   
+21   ************************************************************************
+21 ! *********************************
+22   
+23           PROGRAM NAME: compare_sas_sudaan.sas
+24           SOURCE:
+25           DESCRIPTION:   Compare SAS GENMOD vs SUDAAN results by outcome
+25 ! type and correlation structure
+26           VERSION CONTROL:
+27                               27mar25: create file
+28   ************************************************************************
+28 ! *********************************;
+29   
+30   * Set system options;
+31   options mergenoby=warn ls=95 ps=54 nodate mprint formchar="|----|+|---+=|-/\<>*";
+32   
+33   * Macro to compare results for each outcome x correlation combination;
+34   %macro compare_results(outcome=, corr=);
+35   
+36       * Read SAS and SUDAAN datasets;
+37       %if &outcome. = cont %then %do;
+38           data sas_data;
+39               set dt_betas.betas_pop_sas_&corr.;
+40               software = "SAS";
+41               outcome = "Continuous";
+42               correlation = "%upcase(&corr.)";
+43           run;
+44   
+45           data sudaan_data;
+46               set dt_betas.betas_pop_&corr.;
+47               software = "SUDAAN";
+48               outcome = "Continuous";
+49               correlation = "%upcase(&corr.)";
+50           run;
+51       %end;
+52       %else %if &outcome. = bin %then %do;
+53           data sas_data;
+54               set dt_betas.betas_pop_bin_sas_&corr.;
+55               software = "SAS";
+56               outcome = "Binary";
+57               correlation = "%upcase(&corr.)";
+58           run;
+59   
+60           data sudaan_data;
+61               set dt_betas.betas_pop_bin_&corr.;
+62               software = "SUDAAN";
+63               outcome = "Binary";
+64               correlation = "%upcase(&corr.)";
+65           run;
+66       %end;
+67   
+68       * Combine datasets;
+69       data combined_&outcome._&corr.;
+70           set sas_data sudaan_data;
+71       run;
+72   
+73       * Create comparison dataset;
+74       proc sort data=combined_&outcome._&corr.; by parm software; run;
+75   
+76       proc transpose data=combined_&outcome._&corr. out=wide_&outcome._&corr. prefix=;
+77           by parm outcome correlation;
+78           id software;
+79           var estimate stderr probz t;
+80       run;
+81   
+82       * Calculate differences and ratios;
+83       data comparison_&outcome._&corr.;
+84           set wide_&outcome._&corr.;
+85   
+86           * Calculate differences (SAS - SUDAAN);
+87           estimate_diff = SAS_estimate - SUDAAN_estimate;
+88           stderr_diff = SAS_stderr - SUDAAN_stderr;
+89           probz_diff = SAS_probz - SUDAAN_probz;
+90           t_diff = SAS_t - SUDAAN_t;
+91   
+92           * Calculate relative differences (as percentages);
+93           if SUDAAN_estimate ne 0 then estimate_rel_diff = (estimate_diff / SUDAAN_estimate)
+93 !  * 100;
+94           if SUDAAN_stderr ne 0 then stderr_rel_diff = (stderr_diff / SUDAAN_stderr) * 100;
+95           if SUDAAN_probz ne 0 then probz_rel_diff = (probz_diff / SUDAAN_probz) * 100;
+96           if SUDAAN_t ne 0 then t_rel_diff = (t_diff / SUDAAN_t) * 100;
+97   
+98           * Calculate absolute relative differences;
+99           abs_estimate_rel_diff = abs(estimate_rel_diff);
+100          abs_stderr_rel_diff = abs(stderr_rel_diff);
+101          abs_probz_rel_diff = abs(probz_rel_diff);
+102          abs_t_rel_diff = abs(t_rel_diff);
+103  
+104          format estimate_diff stderr_diff probz_diff t_diff 12.6
+105                 estimate_rel_diff stderr_rel_diff probz_rel_diff t_rel_diff 8.2
+106                 abs_estimate_rel_diff abs_stderr_rel_diff abs_probz_rel_diff abs_t_rel_diff
+106!  8.2;
+107      run;
+108  
+109      * Print comparison results;
+110      title1 "Comparison of SAS vs SUDAAN Results";
+111      title2 "Outcome: %upcase(&outcome.) | Correlation: %upcase(&corr.)";
+112      title3 "Raw Values";
+113  
+114      proc print data=combined_&outcome._&corr. noobs;
+115          var parm software estimate stderr probz t;
+116          format estimate stderr 12.6 probz t 8.4;
+117      run;
+118  
+119      title3 "Differences and Relative Differences (%)";
+120      proc print data=comparison_&outcome._&corr. noobs;
+121          var parm outcome correlation
+122              SAS_estimate SUDAAN_estimate estimate_diff estimate_rel_diff
+123              SAS_stderr SUDAAN_stderr stderr_diff stderr_rel_diff
+124              SAS_probz SUDAAN_probz probz_diff probz_rel_diff
+125              SAS_t SUDAAN_t t_diff t_rel_diff;
+126      run;
+127  
+128      * Summary statistics of differences;
+129      title3 "Summary of Absolute Relative Differences (%)";
+130      proc means data=comparison_&outcome._&corr. n mean std min max;
+131          var abs_estimate_rel_diff abs_stderr_rel_diff abs_probz_rel_diff abs_t_rel_diff;
+132      run;
+133  
+134  %mend compare_results;
+135  
+136  * Create overall comparison dataset;
+137  data all_comparisons;
+138      length outcome $10 correlation $12 software $10;
+139      stop; * Initialize empty dataset;
+140  run;
+
+NOTE: Variable outcome is uninitialized.
+NOTE: Variable correlation is uninitialized.
+NOTE: Variable software is uninitialized.
+NOTE: The data set WORK.ALL_COMPARISONS has 0 observations and 3 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Read SAS and SUDAAN datasets;
+141  
+142  * Run comparisons for all combinations;
+143  %compare_results(outcome=cont, corr=ind);
+MPRINT(COMPARE_RESULTS):   data sas_data;
+MPRINT(COMPARE_RESULTS):   set dt_betas.betas_pop_sas_ind;
+MPRINT(COMPARE_RESULTS):   software = "SAS";
+MPRINT(COMPARE_RESULTS):   outcome = "Continuous";
+MPRINT(COMPARE_RESULTS):   correlation = "IND";
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 7 observations read from the data set DT_BETAS.BETAS_POP_SAS_IND.
+NOTE: The data set WORK.SAS_DATA has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   data sudaan_data;
+MPRINT(COMPARE_RESULTS):   set dt_betas.betas_pop_ind;
+MPRINT(COMPARE_RESULTS):   software = "SUDAAN";
+MPRINT(COMPARE_RESULTS):   outcome = "Continuous";
+MPRINT(COMPARE_RESULTS):   correlation = "IND";
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 7 observations read from the data set DT_BETAS.BETAS_POP_IND.
+NOTE: The data set WORK.SUDAAN_DATA has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Combine datasets;
+MPRINT(COMPARE_RESULTS):   data combined_cont_ind;
+MPRINT(COMPARE_RESULTS):   set sas_data sudaan_data;
+MPRINT(COMPARE_RESULTS):   run;
+
+WARNING: Multiple lengths were specified for the variable Parm by input data set(s). This can 
+         cause truncation of data.
+WARNING: Multiple lengths were specified for the variable software by input data set(s). This 
+         can cause truncation of data.
+NOTE: There were 7 observations read from the data set WORK.SAS_DATA.
+NOTE: There were 7 observations read from the data set WORK.SUDAAN_DATA.
+NOTE: The data set WORK.COMBINED_CONT_IND has 14 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Create comparison dataset;
+MPRINT(COMPARE_RESULTS):   proc sort data=combined_cont_ind;
+MPRINT(COMPARE_RESULTS):   by parm software;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 14 observations read from the data set WORK.COMBINED_CONT_IND.
+NOTE: The data set WORK.COMBINED_CONT_IND has 14 observations and 8 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+22: LINE and COLUMN cannot be determined.
+NOTE 242-205: NOSPOOL is on. Rerunning with OPTION SPOOL might allow recovery of the LINE and 
+              COLUMN where the error has occurred.
+ERROR 22-322: Expecting a name.  
+MPRINT(COMPARE_RESULTS):   proc transpose data=combined_cont_ind out=wide_cont_ind prefix=;
+MPRINT(COMPARE_RESULTS):   by parm outcome correlation;
+MPRINT(COMPARE_RESULTS):   id software;
+MPRINT(COMPARE_RESULTS):   var estimate stderr probz t;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.WIDE_CONT_IND may be incomplete.  When this step was stopped there 
+         were 0 observations and 0 variables.
+NOTE: PROCEDURE TRANSPOSE used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+MPRINT(COMPARE_RESULTS):   * Calculate differences and ratios;
+
+
+MPRINT(COMPARE_RESULTS):   data comparison_cont_ind;
+MPRINT(COMPARE_RESULTS):   set wide_cont_ind;
+MPRINT(COMPARE_RESULTS):   * Calculate differences (SAS - SUDAAN);
+MPRINT(COMPARE_RESULTS):   estimate_diff = SAS_estimate - SUDAAN_estimate;
+MPRINT(COMPARE_RESULTS):   stderr_diff = SAS_stderr - SUDAAN_stderr;
+MPRINT(COMPARE_RESULTS):   probz_diff = SAS_probz - SUDAAN_probz;
+MPRINT(COMPARE_RESULTS):   t_diff = SAS_t - SUDAAN_t;
+MPRINT(COMPARE_RESULTS):   * Calculate relative differences (as percentages);
+MPRINT(COMPARE_RESULTS):   if SUDAAN_estimate ne 0 then estimate_rel_diff = (estimate_diff / 
+SUDAAN_estimate) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_stderr ne 0 then stderr_rel_diff = (stderr_diff / 
+SUDAAN_stderr) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_probz ne 0 then probz_rel_diff = (probz_diff / 
+SUDAAN_probz) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_t ne 0 then t_rel_diff = (t_diff / SUDAAN_t) * 100;
+MPRINT(COMPARE_RESULTS):   * Calculate absolute relative differences;
+MPRINT(COMPARE_RESULTS):   abs_estimate_rel_diff = abs(estimate_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_stderr_rel_diff = abs(stderr_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_probz_rel_diff = abs(probz_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_t_rel_diff = abs(t_rel_diff);
+MPRINT(COMPARE_RESULTS):   format estimate_diff stderr_diff probz_diff t_diff 12.6 
+estimate_rel_diff stderr_rel_diff probz_rel_diff t_rel_diff 8.2 abs_estimate_rel_diff 
+abs_stderr_rel_diff abs_probz_rel_diff abs_t_rel_diff 8.2;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: Variable SUDAAN_estimate is uninitialized.
+NOTE: Variable SAS_estimate is uninitialized.
+NOTE: Variable SUDAAN_stderr is uninitialized.
+NOTE: Variable SAS_stderr is uninitialized.
+NOTE: Variable SUDAAN_probz is uninitialized.
+NOTE: Variable SAS_probz is uninitialized.
+NOTE: Variable SUDAAN_t is uninitialized.
+NOTE: Variable SAS_t is uninitialized.
+NOTE: There were 0 observations read from the data set WORK.WIDE_CONT_IND.
+NOTE: The data set WORK.COMPARISON_CONT_IND has 0 observations and 20 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Print comparison results;
+MPRINT(COMPARE_RESULTS):   title1 "Comparison of SAS vs SUDAAN Results";
+MPRINT(COMPARE_RESULTS):   title2 "Outcome: CONT | Correlation: IND";
+MPRINT(COMPARE_RESULTS):   title3 "Raw Values";
+MPRINT(COMPARE_RESULTS):   proc print data=combined_cont_ind noobs;
+MPRINT(COMPARE_RESULTS):   var parm software estimate stderr probz t;
+MPRINT(COMPARE_RESULTS):   format estimate stderr 12.6 probz t 8.4;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 14 observations read from the data set WORK.COMBINED_CONT_IND.
+NOTE: At least one W.D format was too small for the number to be printed. The decimal may be 
+      shifted by the "BEST" format.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   title3 "Differences and Relative Differences (%)";
+MPRINT(COMPARE_RESULTS):   proc print data=comparison_cont_ind noobs;
+ERROR: Variable PARM not found.
+ERROR: Variable OUTCOME not found.
+ERROR: Variable CORRELATION not found.
+MPRINT(COMPARE_RESULTS):   var parm outcome correlation SAS_estimate SUDAAN_estimate 
+estimate_diff estimate_rel_diff SAS_stderr SUDAAN_stderr stderr_diff stderr_rel_diff SAS_probz 
+SUDAAN_probz probz_diff probz_rel_diff SAS_t SUDAAN_t t_diff t_rel_diff;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+MPRINT(COMPARE_RESULTS):   * Summary statistics of differences;
+MPRINT(COMPARE_RESULTS):   title3 "Summary of Absolute Relative Differences (%)";
+
+
+MPRINT(COMPARE_RESULTS):   proc means data=comparison_cont_ind n mean std min max;
+MPRINT(COMPARE_RESULTS):   var abs_estimate_rel_diff abs_stderr_rel_diff abs_probz_rel_diff 
+abs_t_rel_diff;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: No observations in data set WORK.COMPARISON_CONT_IND.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+144  data all_comparisons; set all_comparisons combined_cont_ind; run;
+
+NOTE: There were 0 observations read from the data set WORK.ALL_COMPARISONS.
+NOTE: There were 14 observations read from the data set WORK.COMBINED_CONT_IND.
+NOTE: The data set WORK.ALL_COMPARISONS has 14 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Read SAS and SUDAAN datasets;
+145  
+146  %compare_results(outcome=cont, corr=exch);
+MPRINT(COMPARE_RESULTS):   data sas_data;
+MPRINT(COMPARE_RESULTS):   set dt_betas.betas_pop_sas_exch;
+MPRINT(COMPARE_RESULTS):   software = "SAS";
+MPRINT(COMPARE_RESULTS):   outcome = "Continuous";
+MPRINT(COMPARE_RESULTS):   correlation = "EXCH";
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 7 observations read from the data set DT_BETAS.BETAS_POP_SAS_EXCH.
+NOTE: The data set WORK.SAS_DATA has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   data sudaan_data;
+MPRINT(COMPARE_RESULTS):   set dt_betas.betas_pop_exch;
+MPRINT(COMPARE_RESULTS):   software = "SUDAAN";
+MPRINT(COMPARE_RESULTS):   outcome = "Continuous";
+MPRINT(COMPARE_RESULTS):   correlation = "EXCH";
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 7 observations read from the data set DT_BETAS.BETAS_POP_EXCH.
+NOTE: The data set WORK.SUDAAN_DATA has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Combine datasets;
+MPRINT(COMPARE_RESULTS):   data combined_cont_exch;
+MPRINT(COMPARE_RESULTS):   set sas_data sudaan_data;
+MPRINT(COMPARE_RESULTS):   run;
+
+WARNING: Multiple lengths were specified for the variable Parm by input data set(s). This can 
+         cause truncation of data.
+WARNING: Multiple lengths were specified for the variable software by input data set(s). This 
+         can cause truncation of data.
+NOTE: There were 7 observations read from the data set WORK.SAS_DATA.
+NOTE: There were 7 observations read from the data set WORK.SUDAAN_DATA.
+NOTE: The data set WORK.COMBINED_CONT_EXCH has 14 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Create comparison dataset;
+MPRINT(COMPARE_RESULTS):   proc sort data=combined_cont_exch;
+MPRINT(COMPARE_RESULTS):   by parm software;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 14 observations read from the data set WORK.COMBINED_CONT_EXCH.
+NOTE: The data set WORK.COMBINED_CONT_EXCH has 14 observations and 8 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+22: LINE and COLUMN cannot be determined.
+NOTE 242-205: NOSPOOL is on. Rerunning with OPTION SPOOL might allow recovery of the LINE and 
+              COLUMN where the error has occurred.
+ERROR 22-322: Expecting a name.  
+MPRINT(COMPARE_RESULTS):   proc transpose data=combined_cont_exch out=wide_cont_exch prefix=;
+MPRINT(COMPARE_RESULTS):   by parm outcome correlation;
+MPRINT(COMPARE_RESULTS):   id software;
+MPRINT(COMPARE_RESULTS):   var estimate stderr probz t;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.WIDE_CONT_EXCH may be incomplete.  When this step was stopped there 
+         were 0 observations and 0 variables.
+NOTE: PROCEDURE TRANSPOSE used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+MPRINT(COMPARE_RESULTS):   * Calculate differences and ratios;
+
+
+MPRINT(COMPARE_RESULTS):   data comparison_cont_exch;
+MPRINT(COMPARE_RESULTS):   set wide_cont_exch;
+MPRINT(COMPARE_RESULTS):   * Calculate differences (SAS - SUDAAN);
+MPRINT(COMPARE_RESULTS):   estimate_diff = SAS_estimate - SUDAAN_estimate;
+MPRINT(COMPARE_RESULTS):   stderr_diff = SAS_stderr - SUDAAN_stderr;
+MPRINT(COMPARE_RESULTS):   probz_diff = SAS_probz - SUDAAN_probz;
+MPRINT(COMPARE_RESULTS):   t_diff = SAS_t - SUDAAN_t;
+MPRINT(COMPARE_RESULTS):   * Calculate relative differences (as percentages);
+MPRINT(COMPARE_RESULTS):   if SUDAAN_estimate ne 0 then estimate_rel_diff = (estimate_diff / 
+SUDAAN_estimate) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_stderr ne 0 then stderr_rel_diff = (stderr_diff / 
+SUDAAN_stderr) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_probz ne 0 then probz_rel_diff = (probz_diff / 
+SUDAAN_probz) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_t ne 0 then t_rel_diff = (t_diff / SUDAAN_t) * 100;
+MPRINT(COMPARE_RESULTS):   * Calculate absolute relative differences;
+MPRINT(COMPARE_RESULTS):   abs_estimate_rel_diff = abs(estimate_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_stderr_rel_diff = abs(stderr_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_probz_rel_diff = abs(probz_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_t_rel_diff = abs(t_rel_diff);
+MPRINT(COMPARE_RESULTS):   format estimate_diff stderr_diff probz_diff t_diff 12.6 
+estimate_rel_diff stderr_rel_diff probz_rel_diff t_rel_diff 8.2 abs_estimate_rel_diff 
+abs_stderr_rel_diff abs_probz_rel_diff abs_t_rel_diff 8.2;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: Variable SUDAAN_estimate is uninitialized.
+NOTE: Variable SAS_estimate is uninitialized.
+NOTE: Variable SUDAAN_stderr is uninitialized.
+NOTE: Variable SAS_stderr is uninitialized.
+NOTE: Variable SUDAAN_probz is uninitialized.
+NOTE: Variable SAS_probz is uninitialized.
+NOTE: Variable SUDAAN_t is uninitialized.
+NOTE: Variable SAS_t is uninitialized.
+NOTE: There were 0 observations read from the data set WORK.WIDE_CONT_EXCH.
+NOTE: The data set WORK.COMPARISON_CONT_EXCH has 0 observations and 20 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Print comparison results;
+MPRINT(COMPARE_RESULTS):   title1 "Comparison of SAS vs SUDAAN Results";
+MPRINT(COMPARE_RESULTS):   title2 "Outcome: CONT | Correlation: EXCH";
+MPRINT(COMPARE_RESULTS):   title3 "Raw Values";
+MPRINT(COMPARE_RESULTS):   proc print data=combined_cont_exch noobs;
+MPRINT(COMPARE_RESULTS):   var parm software estimate stderr probz t;
+MPRINT(COMPARE_RESULTS):   format estimate stderr 12.6 probz t 8.4;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 14 observations read from the data set WORK.COMBINED_CONT_EXCH.
+NOTE: At least one W.D format was too small for the number to be printed. The decimal may be 
+      shifted by the "BEST" format.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   title3 "Differences and Relative Differences (%)";
+MPRINT(COMPARE_RESULTS):   proc print data=comparison_cont_exch noobs;
+ERROR: Variable PARM not found.
+ERROR: Variable OUTCOME not found.
+ERROR: Variable CORRELATION not found.
+MPRINT(COMPARE_RESULTS):   var parm outcome correlation SAS_estimate SUDAAN_estimate 
+estimate_diff estimate_rel_diff SAS_stderr SUDAAN_stderr stderr_diff stderr_rel_diff SAS_probz 
+SUDAAN_probz probz_diff probz_rel_diff SAS_t SUDAAN_t t_diff t_rel_diff;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+MPRINT(COMPARE_RESULTS):   * Summary statistics of differences;
+MPRINT(COMPARE_RESULTS):   title3 "Summary of Absolute Relative Differences (%)";
+
+
+MPRINT(COMPARE_RESULTS):   proc means data=comparison_cont_exch n mean std min max;
+MPRINT(COMPARE_RESULTS):   var abs_estimate_rel_diff abs_stderr_rel_diff abs_probz_rel_diff 
+abs_t_rel_diff;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: No observations in data set WORK.COMPARISON_CONT_EXCH.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+147  data all_comparisons; set all_comparisons combined_cont_exch; run;
+
+NOTE: There were 14 observations read from the data set WORK.ALL_COMPARISONS.
+NOTE: There were 14 observations read from the data set WORK.COMBINED_CONT_EXCH.
+NOTE: The data set WORK.ALL_COMPARISONS has 28 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Read SAS and SUDAAN datasets;
+148  
+149  %compare_results(outcome=bin, corr=ind);
+MPRINT(COMPARE_RESULTS):   data sas_data;
+MPRINT(COMPARE_RESULTS):   set dt_betas.betas_pop_bin_sas_ind;
+MPRINT(COMPARE_RESULTS):   software = "SAS";
+MPRINT(COMPARE_RESULTS):   outcome = "Binary";
+MPRINT(COMPARE_RESULTS):   correlation = "IND";
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 7 observations read from the data set DT_BETAS.BETAS_POP_BIN_SAS_IND.
+NOTE: The data set WORK.SAS_DATA has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   data sudaan_data;
+MPRINT(COMPARE_RESULTS):   set dt_betas.betas_pop_bin_ind;
+MPRINT(COMPARE_RESULTS):   software = "SUDAAN";
+MPRINT(COMPARE_RESULTS):   outcome = "Binary";
+MPRINT(COMPARE_RESULTS):   correlation = "IND";
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 7 observations read from the data set DT_BETAS.BETAS_POP_BIN_IND.
+NOTE: The data set WORK.SUDAAN_DATA has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Combine datasets;
+MPRINT(COMPARE_RESULTS):   data combined_bin_ind;
+MPRINT(COMPARE_RESULTS):   set sas_data sudaan_data;
+MPRINT(COMPARE_RESULTS):   run;
+
+WARNING: Multiple lengths were specified for the variable Parm by input data set(s). This can 
+         cause truncation of data.
+WARNING: Multiple lengths were specified for the variable software by input data set(s). This 
+         can cause truncation of data.
+NOTE: There were 7 observations read from the data set WORK.SAS_DATA.
+NOTE: There were 7 observations read from the data set WORK.SUDAAN_DATA.
+NOTE: The data set WORK.COMBINED_BIN_IND has 14 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Create comparison dataset;
+MPRINT(COMPARE_RESULTS):   proc sort data=combined_bin_ind;
+MPRINT(COMPARE_RESULTS):   by parm software;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 14 observations read from the data set WORK.COMBINED_BIN_IND.
+NOTE: The data set WORK.COMBINED_BIN_IND has 14 observations and 8 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+22: LINE and COLUMN cannot be determined.
+NOTE 242-205: NOSPOOL is on. Rerunning with OPTION SPOOL might allow recovery of the LINE and 
+              COLUMN where the error has occurred.
+ERROR 22-322: Expecting a name.  
+MPRINT(COMPARE_RESULTS):   proc transpose data=combined_bin_ind out=wide_bin_ind prefix=;
+MPRINT(COMPARE_RESULTS):   by parm outcome correlation;
+MPRINT(COMPARE_RESULTS):   id software;
+MPRINT(COMPARE_RESULTS):   var estimate stderr probz t;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.WIDE_BIN_IND may be incomplete.  When this step was stopped there 
+         were 0 observations and 0 variables.
+NOTE: PROCEDURE TRANSPOSE used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+MPRINT(COMPARE_RESULTS):   * Calculate differences and ratios;
+
+
+MPRINT(COMPARE_RESULTS):   data comparison_bin_ind;
+MPRINT(COMPARE_RESULTS):   set wide_bin_ind;
+MPRINT(COMPARE_RESULTS):   * Calculate differences (SAS - SUDAAN);
+MPRINT(COMPARE_RESULTS):   estimate_diff = SAS_estimate - SUDAAN_estimate;
+MPRINT(COMPARE_RESULTS):   stderr_diff = SAS_stderr - SUDAAN_stderr;
+MPRINT(COMPARE_RESULTS):   probz_diff = SAS_probz - SUDAAN_probz;
+MPRINT(COMPARE_RESULTS):   t_diff = SAS_t - SUDAAN_t;
+MPRINT(COMPARE_RESULTS):   * Calculate relative differences (as percentages);
+MPRINT(COMPARE_RESULTS):   if SUDAAN_estimate ne 0 then estimate_rel_diff = (estimate_diff / 
+SUDAAN_estimate) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_stderr ne 0 then stderr_rel_diff = (stderr_diff / 
+SUDAAN_stderr) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_probz ne 0 then probz_rel_diff = (probz_diff / 
+SUDAAN_probz) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_t ne 0 then t_rel_diff = (t_diff / SUDAAN_t) * 100;
+MPRINT(COMPARE_RESULTS):   * Calculate absolute relative differences;
+MPRINT(COMPARE_RESULTS):   abs_estimate_rel_diff = abs(estimate_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_stderr_rel_diff = abs(stderr_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_probz_rel_diff = abs(probz_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_t_rel_diff = abs(t_rel_diff);
+MPRINT(COMPARE_RESULTS):   format estimate_diff stderr_diff probz_diff t_diff 12.6 
+estimate_rel_diff stderr_rel_diff probz_rel_diff t_rel_diff 8.2 abs_estimate_rel_diff 
+abs_stderr_rel_diff abs_probz_rel_diff abs_t_rel_diff 8.2;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: Variable SUDAAN_estimate is uninitialized.
+NOTE: Variable SAS_estimate is uninitialized.
+NOTE: Variable SUDAAN_stderr is uninitialized.
+NOTE: Variable SAS_stderr is uninitialized.
+NOTE: Variable SUDAAN_probz is uninitialized.
+NOTE: Variable SAS_probz is uninitialized.
+NOTE: Variable SUDAAN_t is uninitialized.
+NOTE: Variable SAS_t is uninitialized.
+NOTE: There were 0 observations read from the data set WORK.WIDE_BIN_IND.
+NOTE: The data set WORK.COMPARISON_BIN_IND has 0 observations and 20 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Print comparison results;
+MPRINT(COMPARE_RESULTS):   title1 "Comparison of SAS vs SUDAAN Results";
+MPRINT(COMPARE_RESULTS):   title2 "Outcome: BIN | Correlation: IND";
+MPRINT(COMPARE_RESULTS):   title3 "Raw Values";
+MPRINT(COMPARE_RESULTS):   proc print data=combined_bin_ind noobs;
+MPRINT(COMPARE_RESULTS):   var parm software estimate stderr probz t;
+MPRINT(COMPARE_RESULTS):   format estimate stderr 12.6 probz t 8.4;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 14 observations read from the data set WORK.COMBINED_BIN_IND.
+NOTE: At least one W.D format was too small for the number to be printed. The decimal may be 
+      shifted by the "BEST" format.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   title3 "Differences and Relative Differences (%)";
+MPRINT(COMPARE_RESULTS):   proc print data=comparison_bin_ind noobs;
+ERROR: Variable PARM not found.
+ERROR: Variable OUTCOME not found.
+ERROR: Variable CORRELATION not found.
+MPRINT(COMPARE_RESULTS):   var parm outcome correlation SAS_estimate SUDAAN_estimate 
+estimate_diff estimate_rel_diff SAS_stderr SUDAAN_stderr stderr_diff stderr_rel_diff SAS_probz 
+SUDAAN_probz probz_diff probz_rel_diff SAS_t SUDAAN_t t_diff t_rel_diff;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+MPRINT(COMPARE_RESULTS):   * Summary statistics of differences;
+MPRINT(COMPARE_RESULTS):   title3 "Summary of Absolute Relative Differences (%)";
+
+
+MPRINT(COMPARE_RESULTS):   proc means data=comparison_bin_ind n mean std min max;
+MPRINT(COMPARE_RESULTS):   var abs_estimate_rel_diff abs_stderr_rel_diff abs_probz_rel_diff 
+abs_t_rel_diff;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: No observations in data set WORK.COMPARISON_BIN_IND.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+150  data all_comparisons; set all_comparisons combined_bin_ind; run;
+
+NOTE: There were 28 observations read from the data set WORK.ALL_COMPARISONS.
+NOTE: There were 14 observations read from the data set WORK.COMBINED_BIN_IND.
+NOTE: The data set WORK.ALL_COMPARISONS has 42 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Read SAS and SUDAAN datasets;
+151  
+152  %compare_results(outcome=bin, corr=exch);
+MPRINT(COMPARE_RESULTS):   data sas_data;
+MPRINT(COMPARE_RESULTS):   set dt_betas.betas_pop_bin_sas_exch;
+MPRINT(COMPARE_RESULTS):   software = "SAS";
+MPRINT(COMPARE_RESULTS):   outcome = "Binary";
+MPRINT(COMPARE_RESULTS):   correlation = "EXCH";
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 7 observations read from the data set DT_BETAS.BETAS_POP_BIN_SAS_EXCH.
+NOTE: The data set WORK.SAS_DATA has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   data sudaan_data;
+MPRINT(COMPARE_RESULTS):   set dt_betas.betas_pop_bin_exch;
+MPRINT(COMPARE_RESULTS):   software = "SUDAAN";
+MPRINT(COMPARE_RESULTS):   outcome = "Binary";
+MPRINT(COMPARE_RESULTS):   correlation = "EXCH";
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 7 observations read from the data set DT_BETAS.BETAS_POP_BIN_EXCH.
+NOTE: The data set WORK.SUDAAN_DATA has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Combine datasets;
+MPRINT(COMPARE_RESULTS):   data combined_bin_exch;
+MPRINT(COMPARE_RESULTS):   set sas_data sudaan_data;
+MPRINT(COMPARE_RESULTS):   run;
+
+WARNING: Multiple lengths were specified for the variable Parm by input data set(s). This can 
+         cause truncation of data.
+WARNING: Multiple lengths were specified for the variable software by input data set(s). This 
+         can cause truncation of data.
+NOTE: There were 7 observations read from the data set WORK.SAS_DATA.
+NOTE: There were 7 observations read from the data set WORK.SUDAAN_DATA.
+NOTE: The data set WORK.COMBINED_BIN_EXCH has 14 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Create comparison dataset;
+MPRINT(COMPARE_RESULTS):   proc sort data=combined_bin_exch;
+MPRINT(COMPARE_RESULTS):   by parm software;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 14 observations read from the data set WORK.COMBINED_BIN_EXCH.
+NOTE: The data set WORK.COMBINED_BIN_EXCH has 14 observations and 8 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+22: LINE and COLUMN cannot be determined.
+NOTE 242-205: NOSPOOL is on. Rerunning with OPTION SPOOL might allow recovery of the LINE and 
+              COLUMN where the error has occurred.
+ERROR 22-322: Expecting a name.  
+MPRINT(COMPARE_RESULTS):   proc transpose data=combined_bin_exch out=wide_bin_exch prefix=;
+MPRINT(COMPARE_RESULTS):   by parm outcome correlation;
+MPRINT(COMPARE_RESULTS):   id software;
+MPRINT(COMPARE_RESULTS):   var estimate stderr probz t;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.WIDE_BIN_EXCH may be incomplete.  When this step was stopped there 
+         were 0 observations and 0 variables.
+NOTE: PROCEDURE TRANSPOSE used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+MPRINT(COMPARE_RESULTS):   * Calculate differences and ratios;
+
+
+MPRINT(COMPARE_RESULTS):   data comparison_bin_exch;
+MPRINT(COMPARE_RESULTS):   set wide_bin_exch;
+MPRINT(COMPARE_RESULTS):   * Calculate differences (SAS - SUDAAN);
+MPRINT(COMPARE_RESULTS):   estimate_diff = SAS_estimate - SUDAAN_estimate;
+MPRINT(COMPARE_RESULTS):   stderr_diff = SAS_stderr - SUDAAN_stderr;
+MPRINT(COMPARE_RESULTS):   probz_diff = SAS_probz - SUDAAN_probz;
+MPRINT(COMPARE_RESULTS):   t_diff = SAS_t - SUDAAN_t;
+MPRINT(COMPARE_RESULTS):   * Calculate relative differences (as percentages);
+MPRINT(COMPARE_RESULTS):   if SUDAAN_estimate ne 0 then estimate_rel_diff = (estimate_diff / 
+SUDAAN_estimate) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_stderr ne 0 then stderr_rel_diff = (stderr_diff / 
+SUDAAN_stderr) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_probz ne 0 then probz_rel_diff = (probz_diff / 
+SUDAAN_probz) * 100;
+MPRINT(COMPARE_RESULTS):   if SUDAAN_t ne 0 then t_rel_diff = (t_diff / SUDAAN_t) * 100;
+MPRINT(COMPARE_RESULTS):   * Calculate absolute relative differences;
+MPRINT(COMPARE_RESULTS):   abs_estimate_rel_diff = abs(estimate_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_stderr_rel_diff = abs(stderr_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_probz_rel_diff = abs(probz_rel_diff);
+MPRINT(COMPARE_RESULTS):   abs_t_rel_diff = abs(t_rel_diff);
+MPRINT(COMPARE_RESULTS):   format estimate_diff stderr_diff probz_diff t_diff 12.6 
+estimate_rel_diff stderr_rel_diff probz_rel_diff t_rel_diff 8.2 abs_estimate_rel_diff 
+abs_stderr_rel_diff abs_probz_rel_diff abs_t_rel_diff 8.2;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: Variable SUDAAN_estimate is uninitialized.
+NOTE: Variable SAS_estimate is uninitialized.
+NOTE: Variable SUDAAN_stderr is uninitialized.
+NOTE: Variable SAS_stderr is uninitialized.
+NOTE: Variable SUDAAN_probz is uninitialized.
+NOTE: Variable SAS_probz is uninitialized.
+NOTE: Variable SUDAAN_t is uninitialized.
+NOTE: Variable SAS_t is uninitialized.
+NOTE: There were 0 observations read from the data set WORK.WIDE_BIN_EXCH.
+NOTE: The data set WORK.COMPARISON_BIN_EXCH has 0 observations and 20 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   * Print comparison results;
+MPRINT(COMPARE_RESULTS):   title1 "Comparison of SAS vs SUDAAN Results";
+MPRINT(COMPARE_RESULTS):   title2 "Outcome: BIN | Correlation: EXCH";
+MPRINT(COMPARE_RESULTS):   title3 "Raw Values";
+MPRINT(COMPARE_RESULTS):   proc print data=combined_bin_exch noobs;
+MPRINT(COMPARE_RESULTS):   var parm software estimate stderr probz t;
+MPRINT(COMPARE_RESULTS):   format estimate stderr 12.6 probz t 8.4;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: There were 14 observations read from the data set WORK.COMBINED_BIN_EXCH.
+NOTE: At least one W.D format was too small for the number to be printed. The decimal may be 
+      shifted by the "BEST" format.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+MPRINT(COMPARE_RESULTS):   title3 "Differences and Relative Differences (%)";
+MPRINT(COMPARE_RESULTS):   proc print data=comparison_bin_exch noobs;
+ERROR: Variable PARM not found.
+ERROR: Variable OUTCOME not found.
+ERROR: Variable CORRELATION not found.
+MPRINT(COMPARE_RESULTS):   var parm outcome correlation SAS_estimate SUDAAN_estimate 
+estimate_diff estimate_rel_diff SAS_stderr SUDAAN_stderr stderr_diff stderr_rel_diff SAS_probz 
+SUDAAN_probz probz_diff probz_rel_diff SAS_t SUDAAN_t t_diff t_rel_diff;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+MPRINT(COMPARE_RESULTS):   * Summary statistics of differences;
+MPRINT(COMPARE_RESULTS):   title3 "Summary of Absolute Relative Differences (%)";
+
+
+MPRINT(COMPARE_RESULTS):   proc means data=comparison_bin_exch n mean std min max;
+MPRINT(COMPARE_RESULTS):   var abs_estimate_rel_diff abs_stderr_rel_diff abs_probz_rel_diff 
+abs_t_rel_diff;
+MPRINT(COMPARE_RESULTS):   run;
+
+NOTE: No observations in data set WORK.COMPARISON_BIN_EXCH.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+153  data all_comparisons; set all_comparisons combined_bin_exch; run;
+
+NOTE: There were 42 observations read from the data set WORK.ALL_COMPARISONS.
+NOTE: There were 14 observations read from the data set WORK.COMBINED_BIN_EXCH.
+NOTE: The data set WORK.ALL_COMPARISONS has 56 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+154  
+155  * Overall summary comparison;
+156  title1 "Overall Comparison Summary";
+157  title2 "All Outcomes and Correlation Structures";
+158  
+159  proc print data=all_comparisons;
+160      var parm outcome correlation software estimate stderr probz t;
+161      format estimate stderr 12.6 probz t 8.4;
+162  run;
+
+NOTE: There were 56 observations read from the data set WORK.ALL_COMPARISONS.
+NOTE: At least one W.D format was too small for the number to be printed. The decimal may be 
+      shifted by the "BEST" format.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+163  
+164  * Create side-by-side comparison for easy viewing;
+165  proc sort data=all_comparisons; by outcome correlation parm software; run;
+
+NOTE: There were 56 observations read from the data set WORK.ALL_COMPARISONS.
+NOTE: The data set WORK.ALL_COMPARISONS has 56 observations and 8 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+166  
+167  proc transpose data=all_comparisons out=final_comparison;
+168      by outcome correlation parm;
+169      id software;
+170      var estimate stderr probz t;
+171  run;
+
+NOTE: There were 56 observations read from the data set WORK.ALL_COMPARISONS.
+NOTE: The data set WORK.FINAL_COMPARISON has 112 observations and 7 variables.
+NOTE: PROCEDURE TRANSPOSE used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+172  
+173  data output.final_comparison_formatted;
+174      set final_comparison;
+175  
+176      * Calculate differences for final summary;
+177      if _name_ = 'Estimate' then do;
+178          diff = SAS - SUD;
+179          if SUD ne 0 then rel_diff_pct = (diff / SUD) * 100;
+180      end;
+181      else if _name_ = 'Stderr' then do;
+182          diff = SAS - SUD;
+183          if SUD ne 0 then rel_diff_pct = (diff / SUD) * 100;
+184      end;
+185  
+186      format diff 12.6 rel_diff_pct 8.2 SAS SUD 12.6;
+187  run;
+
+NOTE: There were 112 observations read from the data set WORK.FINAL_COMPARISON.
+NOTE: The data set OUTPUT.FINAL_COMPARISON_FORMATTED has 112 observations and 9 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.31 seconds
+      cpu time            0.00 seconds
+      
+
+188  
+189  title1 "Final Side-by-Side Comparison";
+190  title2 "SAS vs SUDAAN by Parameter, Outcome, and Correlation";
+191  
+192  proc print data=output.final_comparison_formatted noobs;
+193      var outcome correlation parm _name_ SAS SUD diff rel_diff_pct;
+194  run;
+
+NOTE: There were 112 observations read from the data set OUTPUT.FINAL_COMPARISON_FORMATTED.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+195  
+196  * Export results to Excel for further analysis;
+197  proc export data=output.final_comparison_formatted
+198      outfile="&output./comparison_sas_sudaan_results.xlsx"
+199      dbms=xlsx replace;
+200      sheet="Comparison_Summary";
+201  run;
+
+NOTE: The export data set has 112 observations and 9 variables.
+NOTE: "J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\output\comparison_sas_sudaan_results.xlsx" file was 
+      successfully created.
+NOTE: PROCEDURE EXPORT used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+202  
+203  * Clean up temporary datasets;
+204  proc datasets library=work nolist;
+205      delete combined_: comparison_: wide_: sas_data sudaan_data;
+206  quit;
+
+NOTE: Deleting WORK.COMBINED_BIN_EXCH (memtype=DATA).
+NOTE: Deleting WORK.COMBINED_BIN_IND (memtype=DATA).
+NOTE: Deleting WORK.COMBINED_CONT_EXCH (memtype=DATA).
+NOTE: Deleting WORK.COMBINED_CONT_IND (memtype=DATA).
+NOTE: Deleting WORK.COMPARISON_BIN_EXCH (memtype=DATA).
+NOTE: Deleting WORK.COMPARISON_BIN_IND (memtype=DATA).
+NOTE: Deleting WORK.COMPARISON_CONT_EXCH (memtype=DATA).
+NOTE: Deleting WORK.COMPARISON_CONT_IND (memtype=DATA).
+NOTE: Deleting WORK.WIDE_BIN_EXCH (memtype=DATA).
+NOTE: Deleting WORK.WIDE_BIN_IND (memtype=DATA).
+NOTE: Deleting WORK.WIDE_CONT_EXCH (memtype=DATA).
+NOTE: Deleting WORK.WIDE_CONT_IND (memtype=DATA).
+NOTE: Deleting WORK.SAS_DATA (memtype=DATA).
+NOTE: Deleting WORK.SUDAAN_DATA (memtype=DATA).
+NOTE: PROCEDURE DATASETS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+207  
+208  proc printto; run;
+

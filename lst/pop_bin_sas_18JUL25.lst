@@ -1,0 +1,192 @@
+             [SAS GENMOD] ind correlation structure - Binary Model            16
+
+                              The GENMOD Procedure
+
+                               Model Information
+
+                        Data Set               WORK.POP
+                        Distribution           Binomial
+                        Link Function             Logit
+                        Dependent Variable    y_bin_gfr
+
+
+                    Number of Observations Read     3800943
+                    Number of Observations Used     3800943
+                    Number of Events                1779109
+                    Number of Trials                3800943
+
+
+                            Class Level Information
+ 
+    Class      Levels    Values
+
+    subid     1266981    1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
+                         21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37
+                         38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54
+                         55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71
+                         72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87   
+                         ...                                               
+
+
+                                Response Profile
+ 
+                        Ordered                     Total
+                          Value    y_bin_gfr    Frequency
+
+                              1    1              1779109
+                              2    0              2021834
+
+PROC GENMOD is modeling the probability that y_bin_gfr='1'.
+
+
+                             Parameter Information
+ 
+                         Parameter       Effect
+
+                         Prm1            Intercept    
+                         Prm2            x17          
+                         Prm3            x12          
+                         Prm4            x18          
+                         Prm5            y_bmi        
+                         Prm6            age_strat_new
+                         Prm7            x6           
+
+
+  Algorithm converged.                                                       
+
+
+             [SAS GENMOD] ind correlation structure - Binary Model            17
+
+                              The GENMOD Procedure
+
+                             GEE Model Information
+
+             Correlation Structure                      Independent
+             Subject Effect                  subid (1266981 levels)
+             Number of Clusters                             1266981
+             Correlation Matrix Dimension                         3
+             Maximum Cluster Size                                 3
+             Minimum Cluster Size                                 3
+
+
+  Algorithm converged.                                                       
+
+
+                               GEE Fit Criteria
+
+                             QIC      4775936.2699
+                             QICu     4775931.6850
+
+
+                      Analysis Of GEE Parameter Estimates
+                       Empirical Standard Error Estimates
+ 
+                              Standard   95% Confidence
+       Parameter     Estimate    Error       Limits            Z Pr > |Z|
+
+       Intercept      -3.1354   0.0115  -3.1580  -3.1128 -272.24   <.0001
+       x17             0.4542   0.0026   0.4491   0.4593  175.24   <.0001
+       x12             0.0073   0.0026   0.0021   0.0125    2.76   0.0057
+       x18             0.0825   0.0031   0.0765   0.0885   26.98   <.0001
+       y_bmi           0.0007   0.0001   0.0004   0.0010    5.25   <.0001
+       age_strat_new   0.4412   0.0041   0.4332   0.4492  108.23   <.0001
+       x6              0.1259   0.0003   0.1254   0.1264  492.06   <.0001
+             [SAS GENMOD] exch correlation structure - Binary Model           18
+
+                              The GENMOD Procedure
+
+                               Model Information
+
+                        Data Set               WORK.POP
+                        Distribution           Binomial
+                        Link Function             Logit
+                        Dependent Variable    y_bin_gfr
+
+
+                    Number of Observations Read     3800943
+                    Number of Observations Used     3800943
+                    Number of Events                1779109
+                    Number of Trials                3800943
+
+
+                            Class Level Information
+ 
+    Class      Levels    Values
+
+    subid     1266981    1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
+                         21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37
+                         38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54
+                         55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71
+                         72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87   
+                         ...                                               
+
+
+                                Response Profile
+ 
+                        Ordered                     Total
+                          Value    y_bin_gfr    Frequency
+
+                              1    1              1779109
+                              2    0              2021834
+
+PROC GENMOD is modeling the probability that y_bin_gfr='1'.
+
+
+                             Parameter Information
+ 
+                         Parameter       Effect
+
+                         Prm1            Intercept    
+                         Prm2            x17          
+                         Prm3            x12          
+                         Prm4            x18          
+                         Prm5            y_bmi        
+                         Prm6            age_strat_new
+                         Prm7            x6           
+
+
+  Algorithm converged.                                                       
+
+
+             [SAS GENMOD] exch correlation structure - Binary Model           19
+
+                              The GENMOD Procedure
+
+                             GEE Model Information
+
+             Correlation Structure                     Exchangeable
+             Subject Effect                  subid (1266981 levels)
+             Number of Clusters                             1266981
+             Correlation Matrix Dimension                         3
+             Maximum Cluster Size                                 3
+             Minimum Cluster Size                                 3
+
+
+  Algorithm converged.                                                       
+
+
+                             Exchangeable Working
+                                  Correlation
+
+                          Correlation    0.2301803749
+
+
+                               GEE Fit Criteria
+
+                             QIC      4775961.7804
+                             QICu     4775957.4180
+
+
+                      Analysis Of GEE Parameter Estimates
+                       Empirical Standard Error Estimates
+ 
+                              Standard   95% Confidence
+       Parameter     Estimate    Error       Limits            Z Pr > |Z|
+
+       Intercept      -3.1539   0.0115  -3.1764  -3.1314 -275.02   <.0001
+       x17             0.4551   0.0026   0.4501   0.4602  175.60   <.0001
+       x12             0.0076   0.0026   0.0024   0.0128    2.88   0.0040
+       x18             0.0804   0.0031   0.0744   0.0864   26.30   <.0001
+       y_bmi           0.0012   0.0001   0.0009   0.0014    9.26   <.0001
+       age_strat_new   0.4340   0.0041   0.4260   0.4419  106.92   <.0001
+       x6              0.1255   0.0003   0.1250   0.1260  496.74   <.0001

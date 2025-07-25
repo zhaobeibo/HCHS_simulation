@@ -1,0 +1,276 @@
+                              Comparison of SAS vs SUDAAN Results                             1
+                               Outcome: CONT | Correlation: IND
+                                          Raw Values
+
+       Parm             software        Estimate          Stderr       ProbZ           t
+
+       Intercept          SAS         107.077409        0.100020      0.0000       .    
+       Intercept          SUD         107.077409        0.201304      0.0000    531.9189
+       age_strat_new      SAS          -4.768642        0.036303      0.0000       .    
+       age_strat_new      SUD          -4.768642        0.047973      0.0000    -99.4028
+       x12                SAS           8.696699        0.023502      0.0000       .    
+       x12                SUD           8.696699        0.024363      0.0000    356.9646
+       x17                SAS          -1.610295        0.023029      0.0000       .    
+       x17                SUD          -1.610295        0.046577      0.0000    -34.5729
+       x18                SAS          -7.915176        0.026995      0.0000       .    
+       x18                SUD          -7.915176        0.041918      0.0000    -188.825
+       x6                 SAS           5.868139        0.001626      0.0000       .    
+       x6                 SUD           5.868139        0.002428      0.0000    2416.919
+       y_bmi              SAS           0.028417        0.001134      0.0000       .    
+       y_bmi              SUD           0.028417        0.001884      0.0000     15.0808
+                              Comparison of SAS vs SUDAAN Results                             2
+                               Outcome: CONT | Correlation: EXCH
+                                          Raw Values
+
+       Parm             software        Estimate          Stderr       ProbZ           t
+
+       Intercept          SAS         105.979939        0.097565      0.0000       .    
+       Intercept          SUD         106.812457        0.211030      0.0000    506.1485
+       age_strat_new      SAS          -5.166576        0.035218      0.0000       .    
+       age_strat_new      SUD          -4.799282        0.052541      0.0000    -91.3435
+       x12                SAS           8.696837        0.023515      0.0000       .    
+       x12                SUD           8.702207        0.025897      0.0000    336.0320
+       x17                SAS          -1.593434        0.023041      0.0000       .    
+       x17                SUD          -1.580626        0.047089      0.0000    -33.5669
+       x18                SAS          -7.904895        0.027009      0.0000       .    
+       x18                SUD          -7.776429        0.030203      0.0000    -257.468
+       x6                 SAS           5.828656        0.001394      0.0000       .    
+       x6                 SUD           5.864411        0.001864      0.0000    3146.375
+       y_bmi              SAS           0.068037        0.000796      0.0000       .    
+       y_bmi              SUD           0.032108        0.001125      0.0000     28.5436
+                              Comparison of SAS vs SUDAAN Results                             3
+                                Outcome: BIN | Correlation: IND
+                                          Raw Values
+
+       Parm             software        Estimate          Stderr       ProbZ           t
+
+       Intercept          SAS          -3.135391        0.011517      0.0000       .    
+       Intercept          SUD          -3.135391        0.025058      0.0000    -125.127
+       age_strat_new      SAS           0.441206        0.004077      0.0000       .    
+       age_strat_new      SUD           0.441206        0.005937      0.0000     74.3181
+       x12                SAS           0.007314        0.002648      0.0057       .    
+       x12                SUD           0.007314        0.002762      0.0083      2.6482
+       x17                SAS           0.454188        0.002592      0.0000       .    
+       x17                SUD           0.454188        0.005956      0.0000     76.2618
+       x18                SAS           0.082542        0.003060      0.0000       .    
+       x18                SUD           0.082542        0.005449      0.0000     15.1475
+       x6                 SAS           0.125946        0.000256      0.0000       .    
+       x6                 SUD           0.125946        0.000340      0.0000    370.3571
+       y_bmi              SAS           0.000708        0.000135      0.0000       .    
+       y_bmi              SUD           0.000708        0.000253      0.0053      2.7960
+                              Comparison of SAS vs SUDAAN Results                             4
+                               Outcome: BIN | Correlation: EXCH
+                                          Raw Values
+
+       Parm             software        Estimate          Stderr       ProbZ           t
+
+       Intercept          SAS          -3.153888        0.011468      0.0000       .    
+       Intercept          SUD          -3.161054        0.026010      0.0000    -121.530
+       age_strat_new      SAS           0.433960        0.004059      0.0000       .    
+       age_strat_new      SUD           0.429120        0.006574      0.0000     65.2787
+       x12                SAS           0.007618        0.002647      0.0040       .    
+       x12                SUD           0.006069        0.002730      0.0265      2.2231
+       x17                SAS           0.455132        0.002592      0.0000       .    
+       x17                SUD           0.455246        0.006023      0.0000     75.5870
+       x18                SAS           0.080407        0.003057      0.0000       .    
+       x18                SUD           0.073232        0.004213      0.0000     17.3839
+       x6                 SAS           0.125465        0.000253      0.0000       .    
+       x6                 SUD           0.125047        0.000313      0.0000    399.7463
+       y_bmi              SAS           0.001192        0.000129      0.0000       .    
+       y_bmi              SUD           0.001600        0.000182      0.0000      8.7677
+                                  Overall Comparison Summary                                  5
+                            All Outcomes and Correlation Structures
+
+ Obs Parm          outcome    correlation software     Estimate       Stderr    ProbZ        t
+
+   1 Intercept     Continuous    IND        SAS      107.077409     0.100020   0.0000    .    
+   2 Intercept     Continuous    IND        SUD      107.077409     0.201304   0.0000 531.9189
+   3 age_strat_new Continuous    IND        SAS       -4.768642     0.036303   0.0000    .    
+   4 age_strat_new Continuous    IND        SUD       -4.768642     0.047973   0.0000 -99.4028
+   5 x12           Continuous    IND        SAS        8.696699     0.023502   0.0000    .    
+   6 x12           Continuous    IND        SUD        8.696699     0.024363   0.0000 356.9646
+   7 x17           Continuous    IND        SAS       -1.610295     0.023029   0.0000    .    
+   8 x17           Continuous    IND        SUD       -1.610295     0.046577   0.0000 -34.5729
+   9 x18           Continuous    IND        SAS       -7.915176     0.026995   0.0000    .    
+  10 x18           Continuous    IND        SUD       -7.915176     0.041918   0.0000 -188.825
+  11 x6            Continuous    IND        SAS        5.868139     0.001626   0.0000    .    
+  12 x6            Continuous    IND        SUD        5.868139     0.002428   0.0000 2416.919
+  13 y_bmi         Continuous    IND        SAS        0.028417     0.001134   0.0000    .    
+  14 y_bmi         Continuous    IND        SUD        0.028417     0.001884   0.0000  15.0808
+  15 Intercept     Continuous    EXCH       SAS      105.979939     0.097565   0.0000    .    
+  16 Intercept     Continuous    EXCH       SUD      106.812457     0.211030   0.0000 506.1485
+  17 age_strat_new Continuous    EXCH       SAS       -5.166576     0.035218   0.0000    .    
+  18 age_strat_new Continuous    EXCH       SUD       -4.799282     0.052541   0.0000 -91.3435
+  19 x12           Continuous    EXCH       SAS        8.696837     0.023515   0.0000    .    
+  20 x12           Continuous    EXCH       SUD        8.702207     0.025897   0.0000 336.0320
+  21 x17           Continuous    EXCH       SAS       -1.593434     0.023041   0.0000    .    
+  22 x17           Continuous    EXCH       SUD       -1.580626     0.047089   0.0000 -33.5669
+  23 x18           Continuous    EXCH       SAS       -7.904895     0.027009   0.0000    .    
+  24 x18           Continuous    EXCH       SUD       -7.776429     0.030203   0.0000 -257.468
+  25 x6            Continuous    EXCH       SAS        5.828656     0.001394   0.0000    .    
+  26 x6            Continuous    EXCH       SUD        5.864411     0.001864   0.0000 3146.375
+  27 y_bmi         Continuous    EXCH       SAS        0.068037     0.000796   0.0000    .    
+  28 y_bmi         Continuous    EXCH       SUD        0.032108     0.001125   0.0000  28.5436
+  29 Intercept     Binary        IND        SAS       -3.135391     0.011517   0.0000    .    
+  30 Intercept     Binary        IND        SUD       -3.135391     0.025058   0.0000 -125.127
+  31 age_strat_new Binary        IND        SAS        0.441206     0.004077   0.0000    .    
+  32 age_strat_new Binary        IND        SUD        0.441206     0.005937   0.0000  74.3181
+  33 x12           Binary        IND        SAS        0.007314     0.002648   0.0057    .    
+  34 x12           Binary        IND        SUD        0.007314     0.002762   0.0083   2.6482
+  35 x17           Binary        IND        SAS        0.454188     0.002592   0.0000    .    
+  36 x17           Binary        IND        SUD        0.454188     0.005956   0.0000  76.2618
+  37 x18           Binary        IND        SAS        0.082542     0.003060   0.0000    .    
+  38 x18           Binary        IND        SUD        0.082542     0.005449   0.0000  15.1475
+  39 x6            Binary        IND        SAS        0.125946     0.000256   0.0000    .    
+  40 x6            Binary        IND        SUD        0.125946     0.000340   0.0000 370.3571
+  41 y_bmi         Binary        IND        SAS        0.000708     0.000135   0.0000    .    
+  42 y_bmi         Binary        IND        SUD        0.000708     0.000253   0.0053   2.7960
+  43 Intercept     Binary        EXCH       SAS       -3.153888     0.011468   0.0000    .    
+  44 Intercept     Binary        EXCH       SUD       -3.161054     0.026010   0.0000 -121.530
+  45 age_strat_new Binary        EXCH       SAS        0.433960     0.004059   0.0000    .    
+  46 age_strat_new Binary        EXCH       SUD        0.429120     0.006574   0.0000  65.2787
+  47 x12           Binary        EXCH       SAS        0.007618     0.002647   0.0040    .    
+  48 x12           Binary        EXCH       SUD        0.006069     0.002730   0.0265   2.2231
+  49 x17           Binary        EXCH       SAS        0.455132     0.002592   0.0000    .    
+                                  Overall Comparison Summary                                  6
+                            All Outcomes and Correlation Structures
+
+  Obs  Parm   outcome  correlation  software      Estimate        Stderr     ProbZ         t
+
+   50  x17    Binary      EXCH        SUD         0.455246      0.006023    0.0000   75.5870
+   51  x18    Binary      EXCH        SAS         0.080407      0.003057    0.0000     .    
+   52  x18    Binary      EXCH        SUD         0.073232      0.004213    0.0000   17.3839
+   53  x6     Binary      EXCH        SAS         0.125465      0.000253    0.0000     .    
+   54  x6     Binary      EXCH        SUD         0.125047      0.000313    0.0000  399.7463
+   55  y_bmi  Binary      EXCH        SAS         0.001192      0.000129    0.0000     .    
+   56  y_bmi  Binary      EXCH        SUD         0.001600      0.000182    0.0000    8.7677
+                                 Final Side-by-Side Comparison                                7
+                     SAS vs SUDAAN by Parameter, Outcome, and Correlation
+
+                                                                                      rel_
+  outcome correlation Parm          _NAME_            SAS          SUD         diff diff_pct
+
+  Binary     EXCH     Intercept     Estimate    -3.153888    -3.161054     0.007165    -0.23
+  Binary     EXCH     Intercept     Stderr       0.011468     0.026010    -0.014543   -55.91
+  Binary     EXCH     Intercept     ProbZ        0.000000     0.000000      .            .  
+  Binary     EXCH     Intercept     t             .        -121.530101      .            .  
+  Binary     EXCH     age_strat_new Estimate     0.433960     0.429120     0.004840     1.13
+  Binary     EXCH     age_strat_new Stderr       0.004059     0.006574    -0.002515   -38.26
+  Binary     EXCH     age_strat_new ProbZ        0.000000     0.000000      .            .  
+  Binary     EXCH     age_strat_new t             .          65.278677      .            .  
+  Binary     EXCH     x12           Estimate     0.007618     0.006069     0.001549    25.52
+  Binary     EXCH     x12           Stderr       0.002647     0.002730    -0.000083    -3.04
+  Binary     EXCH     x12           ProbZ        0.004003     0.026505      .            .  
+  Binary     EXCH     x12           t             .           2.223126      .            .  
+  Binary     EXCH     x17           Estimate     0.455132     0.455246    -0.000114    -0.02
+  Binary     EXCH     x17           Stderr       0.002592     0.006023    -0.003431   -56.97
+  Binary     EXCH     x17           ProbZ        0.000000     0.000000      .            .  
+  Binary     EXCH     x17           t             .          75.587043      .            .  
+  Binary     EXCH     x18           Estimate     0.080407     0.073232     0.007175     9.80
+  Binary     EXCH     x18           Stderr       0.003057     0.004213    -0.001155   -27.43
+  Binary     EXCH     x18           ProbZ        0.000000     0.000000      .            .  
+  Binary     EXCH     x18           t             .          17.383850      .            .  
+  Binary     EXCH     x6            Estimate     0.125465     0.125047     0.000417     0.33
+  Binary     EXCH     x6            Stderr       0.000253     0.000313    -0.000060   -19.26
+  Binary     EXCH     x6            ProbZ        0.000000     0.000000      .            .  
+  Binary     EXCH     x6            t             .         399.746252      .            .  
+  Binary     EXCH     y_bmi         Estimate     0.001192     0.001600    -0.000408   -25.47
+  Binary     EXCH     y_bmi         Stderr       0.000129     0.000182    -0.000054   -29.44
+  Binary     EXCH     y_bmi         ProbZ        0.000000     0.000000      .            .  
+  Binary     EXCH     y_bmi         t             .           8.767699      .            .  
+  Binary     IND      Intercept     Estimate    -3.135391    -3.135391     0.000000    -0.00
+  Binary     IND      Intercept     Stderr       0.011517     0.025058    -0.013541   -54.04
+  Binary     IND      Intercept     ProbZ        0.000000     0.000000      .            .  
+  Binary     IND      Intercept     t             .        -125.126750      .            .  
+  Binary     IND      age_strat_new Estimate     0.441206     0.441206     0.000000     0.00
+  Binary     IND      age_strat_new Stderr       0.004077     0.005937    -0.001860   -31.33
+  Binary     IND      age_strat_new ProbZ        0.000000     0.000000      .            .  
+  Binary     IND      age_strat_new t             .          74.318050      .            .  
+  Binary     IND      x12           Estimate     0.007314     0.007314    -0.000000    -0.00
+  Binary     IND      x12           Stderr       0.002648     0.002762    -0.000114    -4.12
+  Binary     IND      x12           ProbZ        0.005743     0.008262      .            .  
+  Binary     IND      x12           t             .           2.648246      .            .  
+  Binary     IND      x17           Estimate     0.454188     0.454188    -0.000000    -0.00
+  Binary     IND      x17           Stderr       0.002592     0.005956    -0.003364   -56.48
+  Binary     IND      x17           ProbZ        0.000000     0.000000      .            .  
+  Binary     IND      x17           t             .          76.261751      .            .  
+  Binary     IND      x18           Estimate     0.082542     0.082542     0.000000     0.00
+  Binary     IND      x18           Stderr       0.003060     0.005449    -0.002390   -43.85
+  Binary     IND      x18           ProbZ        0.000000     0.000000      .            .  
+  Binary     IND      x18           t             .          15.147520      .            .  
+                                 Final Side-by-Side Comparison                                8
+                     SAS vs SUDAAN by Parameter, Outcome, and Correlation
+
+                                                                                        rel_
+ outcome    correlation Parm          _NAME_            SAS          SUD         diff diff_pct
+
+ Binary        IND      x6            Estimate     0.125946     0.125946     0.000000     0.00
+ Binary        IND      x6            Stderr       0.000256     0.000340    -0.000084   -24.73
+ Binary        IND      x6            ProbZ        0.000000     0.000000      .            .  
+ Binary        IND      x6            t             .         370.357062      .            .  
+ Binary        IND      y_bmi         Estimate     0.000708     0.000708    -0.000000    -0.00
+ Binary        IND      y_bmi         Stderr       0.000135     0.000253    -0.000118   -46.75
+ Binary        IND      y_bmi         ProbZ        0.000000     0.005306      .            .  
+ Binary        IND      y_bmi         t             .           2.796026      .            .  
+ Continuous    EXCH     Intercept     Estimate   105.979939   106.812457    -0.832518    -0.78
+ Continuous    EXCH     Intercept     Stderr       0.097565     0.211030    -0.113465   -53.77
+ Continuous    EXCH     Intercept     ProbZ        0.000000     0.000000      .            .  
+ Continuous    EXCH     Intercept     t             .         506.148482      .            .  
+ Continuous    EXCH     age_strat_new Estimate    -5.166576    -4.799282    -0.367294     7.65
+ Continuous    EXCH     age_strat_new Stderr       0.035218     0.052541    -0.017323   -32.97
+ Continuous    EXCH     age_strat_new ProbZ        0.000000     0.000000      .            .  
+ Continuous    EXCH     age_strat_new t             .         -91.343520      .            .  
+ Continuous    EXCH     x12           Estimate     8.696837     8.702207    -0.005370    -0.06
+ Continuous    EXCH     x12           Stderr       0.023515     0.025897    -0.002382    -9.20
+ Continuous    EXCH     x12           ProbZ        0.000000     0.000000      .            .  
+ Continuous    EXCH     x12           t             .         336.031983      .            .  
+ Continuous    EXCH     x17           Estimate    -1.593434    -1.580626    -0.012808     0.81
+ Continuous    EXCH     x17           Stderr       0.023041     0.047089    -0.024048   -51.07
+ Continuous    EXCH     x17           ProbZ        0.000000     0.000000      .            .  
+ Continuous    EXCH     x17           t             .         -33.566873      .            .  
+ Continuous    EXCH     x18           Estimate    -7.904895    -7.776429    -0.128466     1.65
+ Continuous    EXCH     x18           Stderr       0.027009     0.030203    -0.003194   -10.58
+ Continuous    EXCH     x18           ProbZ        0.000000     0.000000      .            .  
+ Continuous    EXCH     x18           t             .        -257.467861      .            .  
+ Continuous    EXCH     x6            Estimate     5.828656     5.864411    -0.035754    -0.61
+ Continuous    EXCH     x6            Stderr       0.001394     0.001864    -0.000470   -25.22
+ Continuous    EXCH     x6            ProbZ        0.000000     0.000000      .            .  
+ Continuous    EXCH     x6            t             .        3146.374817      .            .  
+ Continuous    EXCH     y_bmi         Estimate     0.068037     0.032108     0.035928   111.90
+ Continuous    EXCH     y_bmi         Stderr       0.000796     0.001125    -0.000329   -29.26
+ Continuous    EXCH     y_bmi         ProbZ        0.000000     0.000000      .            .  
+ Continuous    EXCH     y_bmi         t             .          28.543591      .            .  
+ Continuous    IND      Intercept     Estimate   107.077409   107.077409     0.000000     0.00
+ Continuous    IND      Intercept     Stderr       0.100020     0.201304    -0.101284   -50.31
+ Continuous    IND      Intercept     ProbZ        0.000000     0.000000      .            .  
+ Continuous    IND      Intercept     t             .         531.918905      .            .  
+ Continuous    IND      age_strat_new Estimate    -4.768642    -4.768642     0.000000    -0.00
+ Continuous    IND      age_strat_new Stderr       0.036303     0.047973    -0.011670   -24.33
+ Continuous    IND      age_strat_new ProbZ        0.000000     0.000000      .            .  
+ Continuous    IND      age_strat_new t             .         -99.402780      .            .  
+ Continuous    IND      x12           Estimate     8.696699     8.696699    -0.000000    -0.00
+ Continuous    IND      x12           Stderr       0.023502     0.024363    -0.000861    -3.53
+ Continuous    IND      x12           ProbZ        0.000000     0.000000      .            .  
+ Continuous    IND      x12           t             .         356.964556      .            .  
+                                 Final Side-by-Side Comparison                                9
+                     SAS vs SUDAAN by Parameter, Outcome, and Correlation
+
+                                                                                       rel_
+  outcome    correlation  Parm   _NAME_             SAS           SUD          diff  diff_pct
+
+ Continuous      IND      x17    Estimate     -1.610295     -1.610295     -0.000000      0.00
+ Continuous      IND      x17    Stderr        0.023029      0.046577     -0.023548    -50.56
+ Continuous      IND      x17    ProbZ         0.000000      0.000000       .             .  
+ Continuous      IND      x17    t              .          -34.572885       .             .  
+ Continuous      IND      x18    Estimate     -7.915176     -7.915176      0.000000     -0.00
+ Continuous      IND      x18    Stderr        0.026995      0.041918     -0.014923    -35.60
+ Continuous      IND      x18    ProbZ         0.000000      0.000000       .             .  
+ Continuous      IND      x18    t              .         -188.824878       .             .  
+ Continuous      IND      x6     Estimate      5.868139      5.868139     -0.000000     -0.00
+ Continuous      IND      x6     Stderr        0.001626      0.002428     -0.000802    -33.04
+ Continuous      IND      x6     ProbZ         0.000000      0.000000       .             .  
+ Continuous      IND      x6     t              .         2416.919002       .             .  
+ Continuous      IND      y_bmi  Estimate      0.028417      0.028417      0.000000      0.00
+ Continuous      IND      y_bmi  Stderr        0.001134      0.001884     -0.000750    -39.80
+ Continuous      IND      y_bmi  ProbZ         0.000000      0.000000       .             .  
+ Continuous      IND      y_bmi  t              .           15.080819       .             .  

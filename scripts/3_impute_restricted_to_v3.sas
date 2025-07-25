@@ -1,4 +1,4 @@
-%include "J:\HCHS\STATISTICS\GRAS\QAngarita\HCHS_simulation\scripts\_init.sas";
+%include "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\scripts\_init.sas";
 
 proc printto log = "&homepath./logs/3_impute_restricted_v3_&sysdate..log"
 			 print= "&homepath./lst/3_impute_restricted_v3_&sysdate..lst" new; run; 

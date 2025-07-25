@@ -1,33 +1,25 @@
-%include "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\scripts\_init.sas";
+%include "J:\HCHS\STATISTICS\GRAS\QAngarita\HCHS_simulation\scripts\_init.sas";
 
-proc printto log = "&homepath./logs/3_combine_restricted_to_v3_&sysdate..log"
-			 print= "&homepath./lst/3_combine_restricted_to_v3_&sysdate..lst" new; run; 
+proc printto log = "&homepath./logs/combine_sudaan_pop_&sysdate..log"
+			 print= "&homepath./lst/combine_sudaan_pop_&sysdate..lst" new; run; 
 *********************************************************************************************************
         
-        PROGRAM NAME: 3_combine_restricted_to_v3.sas
+        PROGRAM NAME: combine_sudaan_pop.sas
 
         PROGRAMMER: AQA    
 
         DESCRIPTION:  
 
         VERSION CONTROL:
-						- 29may25: Initialize the code 	
+						- 20FEB25: Initialize the code 	
 
 *********************************************************************************************************;
 
 
-%macro combine_betas_rr(start=1, end=100, corr=exchangeable, rr=glm);
+%macro combine_betas(start=1, end=100, corr=exchangeable);
 * merge files containing beta estimates using sample data;
-
 data merge_betas;
-	%if &corr = exchangeable %then %do;
-			set dt_betas.betas_mi_v2_exch_&rr._&start. - dt_betas.betas_mi_v2_exch_&rr._&end.;
-	%end;
-	%else %do;
-			set dt_betas.betas_mi_v2_ind_&rr._&start. - dt_betas.betas_mi_v2_ind_&rr._&end.;
-	%end;
-
-	if parm = 'intercept' then parm = 'Intercept';
+	set dt_betas.betas_&corr._&start. - dt_betas.betas_&corr._&end.;
 run;
 
 * append the true value coming from population estimates; 
@@ -44,8 +36,8 @@ quit;
 * Compute 95% confidence intervals;
 data betas_samp_pop; 
 	set betas_samp_pop;
-	uppercl = Estimate + 1.975 * Stderr; 
-	lowercl = Estimate - 1.975 * Stderr; 
+	uppercl = Estimate + 1.965 * Stderr; 
+	lowercl = Estimate - 1.965 * Stderr; 
 run;
 
 * Estimate quantities of interest: bias, ...; 
@@ -74,7 +66,7 @@ data output;
       relse=estse/empse-1;
 run;
 
-ods rtf file="&homepath./output/reports/3_combine_mi_restricted_&corr._&rr._&sysdate..rtf" style=journal bodytitle;
+ods rtf file="&homepath./output/reports/combine_sudaan_&corr._&sysdate..rtf" style=journal bodytitle;
         proc print data=output noobs label;
 		var parm true estimate empbias relbias empse estse relse coverage prejecth0;
         label parm='Effect' true='True Value' estimate='Estimate'
@@ -84,14 +76,10 @@ ods rtf file="&homepath./output/reports/3_combine_mi_restricted_&corr._&rr._&sys
                         relse='Relative SE difference';
 run;
 ods rtf close;
-%mend combine_betas_rr;
+%mend combine_betas;
 
-
-%combine_betas_rr();
-%combine_betas_rr(corr=independent);
-%combine_betas_rr(rr=nradj, corr=independent);
-%combine_betas_rr(rr=nradj);
-
+%combine_betas(corr=exchangeable);
+%combine_betas(corr=independent);
 
 proc printto; run;
 

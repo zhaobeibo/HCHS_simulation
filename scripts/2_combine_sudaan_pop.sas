@@ -1,4 +1,4 @@
-%include "J:\HCHS\STATISTICS\GRAS\QAngarita\HCHS_simulation\scripts\_init.sas";
+%include "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\scripts\_init.sas";
 
 proc printto log = "&homepath./logs/combine_sudaan_pop_&sysdate..log"
 			 print= "&homepath./lst/combine_sudaan_pop_&sysdate..lst" new; run; 
