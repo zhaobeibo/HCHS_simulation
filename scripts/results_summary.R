@@ -3,18 +3,478 @@ library(readxl)
 library(dplyr)
 library(stringr)
 library(tidyr)
-library(knitr)
+library(openxlsx)
 
-# Set file path (assuming data is already loaded)
-main_path <- "J://HCHS//STATISTICS//GRAS//Beibo//Computing Requests//HCHS_simulation//"
+# Set file path
+main_path <- "C://Users//zhaob//OneDrive - University of North Carolina at Chapel Hill//CSCC//HCHS//V3_SIM//suddan//HCHS_simulation//"
 file_path <- paste0(main_path, "output//alex//GENMOD - GEE Results.xlsx")
+
+# Read data
 method_codes <- read_excel(file_path, sheet = "Method Codes")
 batch_output <- read_excel(file_path, sheet = "Batch Output")
 
-# Function to parse method specifications and create mapping
+# Enhanced function to parse method specifications - FINAL FIX
 create_method_mapping <- function(method_codes) {
   
-  # Extract relevant information from the Spec column
+  cat("=== DEBUGGING METHOD MAPPING - FINAL FIX ===\n")
+  
+  method_mapping <- method_codes %>%
+    select(suffix, Spec, corr, mitype) %>%
+    filter(!is.na(suffix) & !is.na(Spec)) %>%
+    mutate(
+      # Extract scenario number from Spec
+      scenario = str_extract(Spec, "^\\[(\\d+)\\]") %>% str_extract("\\d+") %>% as.numeric(),
+      
+      # Extract procedure type
+      proc_type = case_when(
+        str_detect(Spec, "PROC GENMOD") ~ "GENMOD",
+        str_detect(Spec, "PROC GEE") ~ "GEE",
+        TRUE ~ "UNKNOWN"
+      ),
+      
+      # CRITICAL: Use BOTH corr column AND Spec to determine correlation
+      correlation = case_when(
+        str_detect(Spec, "IND CORR") ~ "Independent",
+        str_detect(Spec, "EXCH CORR") ~ "Exchangeable",
+        corr == "IND" ~ "Independent", 
+        corr == "EXCH" ~ "Exchangeable",
+        TRUE ~ "UNKNOWN"
+      ),
+      
+      # Extract missing data method
+      missing_method = case_when(
+        str_detect(Spec, "\\[MI\\]") ~ "MI",
+        str_detect(Spec, "\\[NO MI\\]") ~ "NO MI",
+        TRUE ~ "UNKNOWN"
+      ),
+      
+      # Extract weight method
+      weight_method = case_when(
+        str_detect(Spec, "RR_glm_agestrat") ~ "RR_glm_agestrat_strat",
+        str_detect(Spec, "RR_glm_strat") ~ "RR_glm_strat",
+        str_detect(Spec, "RR_NRadj_strat") ~ "RR_NRadj_strat", 
+        str_detect(Spec, "RR_glm") ~ "RR_glm",
+        str_detect(Spec, "RR_NRadj") ~ "RR_NRadj",
+        TRUE ~ "UNKNOWN"
+      ),
+      
+      # Extract outcome type
+      outcome_type = case_when(
+        str_detect(Spec, "BINARY") ~ "Binary",
+        mitype == "bin" ~ "Binary",
+        mitype == "cont" ~ "Continuous",
+        TRUE ~ "Continuous"
+      ),
+      
+      # Extract visit restriction
+      visit_restriction = case_when(
+        str_detect(Spec, "NOMISS V3") ~ "V3_restricted",
+        str_detect(Spec, "bghhsub_s2_v3_nr") ~ "V3_restricted", 
+        str_detect(Spec, "bghhsub_s2_nr") ~ "visit_specific",
+        TRUE ~ "full_sample"
+      ),
+      
+      # Create scenario description
+      scenario_desc = case_when(
+        scenario == 1 ~ "MI + V1 Weight (Full Sample)",
+        scenario == 2 ~ "No MI + V1 Weight (Full Sample)", 
+        scenario == 3 ~ "MI + V3 Adjusted Weight (Restricted Sample)",
+        scenario == 4 ~ "No MI + V3 Adjusted Weight (Restricted Sample)",
+        scenario == 5 ~ "MI + Visit-specific Weights (Full Sample)",
+        scenario == 6 ~ "No MI + Visit-specific Weights (Full Sample)",
+        TRUE ~ paste("Scenario", scenario)
+      )
+    )
+  
+  # Debug: Check if we have proper IND vs EXCH mapping
+  cat("Method mapping for key suffixes:\n")
+  debug_mapping <- method_mapping %>%
+    filter(suffix %in% c("1A", "1E"), scenario == 1) %>%
+    select(suffix, corr, correlation, weight_method, Spec)
+  print(debug_mapping)
+  
+  return(method_mapping)
+}
+
+# Function to create detailed Excel blocks - FIXED to preserve separate IND/EXCH rows
+create_excel_blocks <- function(batch_output, method_mapping) {
+  
+  cat("=== CREATING DETAILED BLOCKS - PRESERVING SEPARATE ROWS ===\n")
+  
+  # Step 1: Create a row identifier in batch_output to track which row is which
+  batch_output_with_id <- batch_output %>%
+    group_by(suffix, Parm) %>%
+    mutate(row_id = row_number()) %>%
+    ungroup()
+  
+  cat("Debug: batch_output rows for suffix 1A, Intercept:\n")
+  debug_batch <- batch_output_with_id %>%
+    filter(suffix == "1A", Parm == "Intercept") %>%
+    select(suffix, Parm, row_id, Estimate, Coverage)
+  print(debug_batch)
+  
+  # Step 2: Join with method mapping but preserve all rows
+  detailed_results <- batch_output_with_id %>%
+    left_join(method_mapping, by = "suffix", relationship = "many-to-many") %>%
+    filter(!is.na(scenario))
+  
+  # Step 3: Match rows to correlations based on position
+  # For suffix 1A: row 1 should be EXCH, row 2 should be IND (based on your batch output)
+  detailed_results <- detailed_results %>%
+    arrange(suffix, Parm, row_id, correlation) %>%
+    group_by(suffix, Parm) %>%
+    mutate(
+      # Assign correlation based on row order
+      final_correlation = case_when(
+        row_id == 1 ~ "Exchangeable", 
+        row_id == 2 ~ "Independent",
+        TRUE ~ correlation
+      )
+    ) %>%
+    ungroup() %>%
+    # Now remove duplicates properly
+    filter(correlation == final_correlation) %>%
+    select(-row_id, -final_correlation)
+  
+  cat("\nDebug: After proper correlation assignment for suffix 1A, Intercept:\n")
+  debug_result <- detailed_results %>%
+    filter(suffix == "1A", Parm == "Intercept") %>%
+    select(suffix, correlation, Estimate, Coverage, weight_method) %>%
+    arrange(correlation)
+  print(debug_result)
+  
+  # Check correlation distribution
+  cat("\nCorrelation distribution in detailed_results:\n")
+  print(table(detailed_results$correlation))
+  
+  # Create blocks organized by scenario, correlation, and missing method
+  blocks_list <- list()
+  
+  scenarios <- sort(unique(detailed_results$scenario))
+  correlations <- c("Independent", "Exchangeable")
+  missing_methods <- c("MI", "NO MI")
+  outcome_types <- c("Continuous", "Binary")
+  proc_types <- c("GENMOD", "GEE")
+  
+  for (outcome in outcome_types) {
+    for (proc in proc_types) {
+      for (scenario in scenarios) {
+        for (missing in missing_methods) {
+          
+          # Create block for this combination
+          block_name <- paste0("S", scenario, "_", outcome, "_", proc, "_", missing)
+          
+          # Filter data for this block
+          block_data <- detailed_results %>%
+            filter(scenario == !!scenario, 
+                   outcome_type == !!outcome,
+                   proc_type == !!proc,
+                   missing_method == !!missing) %>%
+            arrange(correlation, weight_method, Parm)
+          
+          if (nrow(block_data) > 0) {
+            # Format the block similar to your example
+            formatted_block <- block_data %>%
+              select(scenario, suffix, Parm, `True Value`, Estimate, `Empirical Bias`, `Relative Bias`,
+                     `Empirical SE`, `Estimated SE`, `Relative SE difference`, 
+                     Coverage, `P(reject H0)`, correlation, weight_method) %>%
+              mutate(
+                `Relative Bias` = paste0(round(`Relative Bias` * 100, 1), "%"),
+                `Relative SE difference` = paste0(round(`Relative SE difference` * 100, 1), "%"),
+                Coverage = round(Coverage, 3),
+                `P(reject H0)` = round(`P(reject H0)`, 3),
+                # Add coverage issue indicator for debugging
+                Coverage_Issue = ifelse(Coverage < 0.92 | Coverage > 0.97, "YES", "NO")
+              )
+            
+            blocks_list[[block_name]] <- formatted_block
+          }
+        }
+      }
+    }
+  }
+  
+  return(blocks_list)
+}
+
+# Function to count coverage issues - FIXED to preserve separate rows
+create_summary_table <- function(batch_output, method_mapping) {
+  
+  cat("=== CREATING SUMMARY TABLE - PRESERVING SEPARATE ROWS ===\n")
+  
+  # Step 1: Create a row identifier in batch_output
+  batch_output_with_id <- batch_output %>%
+    group_by(suffix, Parm) %>%
+    mutate(row_id = row_number()) %>%
+    ungroup()
+  
+  # Step 2: Join with method mapping
+  coverage_data <- batch_output_with_id %>%
+    left_join(method_mapping, by = "suffix", relationship = "many-to-many") %>%
+    filter(!is.na(scenario))
+  
+  # Step 3: Match rows to correlations based on position
+  coverage_data <- coverage_data %>%
+    arrange(suffix, Parm, row_id, correlation) %>%
+    group_by(suffix, Parm) %>%
+    mutate(
+      # Assign correlation based on row order
+      final_correlation = case_when(
+        row_id == 1 ~ "Exchangeable", 
+        row_id == 2 ~ "Independent",
+        TRUE ~ correlation
+      )
+    ) %>%
+    ungroup() %>%
+    # Now remove duplicates properly
+    filter(correlation == final_correlation) %>%
+    select(-row_id, -final_correlation) %>%
+    mutate(
+      # Fix coverage issue calculation
+      Coverage_numeric = as.numeric(Coverage),
+      coverage_issue = ifelse(Coverage_numeric < 0.92 | Coverage_numeric > 0.97, 1, 0)
+    )
+  
+  # Debug: Check that we now have different coverage values for IND vs EXCH
+  cat("Coverage comparison for suffix 1A (should show DIFFERENT values):\n")
+  debug_sample <- coverage_data %>%
+    filter(suffix == "1A", weight_method == "RR_glm") %>%
+    select(suffix, correlation, Parm, Coverage_numeric, coverage_issue) %>%
+    arrange(correlation, Parm)
+  print(debug_sample)
+  
+  # Create summary for each scenario-weight combination
+  summary_data <- coverage_data %>%
+    group_by(scenario, scenario_desc, outcome_type, proc_type, correlation, 
+             weight_method, missing_method) %>%
+    summarise(
+      total_params = n(),
+      coverage_issues = sum(coverage_issue, na.rm = TRUE),
+      avg_coverage = mean(Coverage_numeric, na.rm = TRUE),
+      min_coverage = min(Coverage_numeric, na.rm = TRUE),
+      max_coverage = max(Coverage_numeric, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  return(summary_data)
+}
+
+# Function to create clean summary tables - FIXED to preserve separate rows
+create_clean_summary_tables <- function(summary_data) {
+  
+  # Create separate tables for each outcome type and procedure combination
+  tables <- list()
+  
+  for (outcome in c("Continuous", "Binary")) {
+    for (proc in c("GENMOD", "GEE")) {
+      
+      table_name <- paste(outcome, "Outcome, PROC", proc)
+      
+      # Filter data for this combination
+      filtered_data <- summary_data %>%
+        filter(outcome_type == outcome, proc_type == proc)
+      
+      if (nrow(filtered_data) > 0) {
+        # Create the summary table with coverage issues in cells
+        summary_table <- filtered_data %>%
+          select(scenario, scenario_desc, correlation, weight_method, coverage_issues) %>%
+          # Create column names combining correlation and weight method
+          unite("column_name", correlation, weight_method, sep = "_") %>%
+          select(scenario, scenario_desc, column_name, coverage_issues) %>%
+          pivot_wider(
+            names_from = column_name,
+            values_from = coverage_issues,
+            values_fill = 0
+          ) %>%
+          arrange(scenario)
+        
+        tables[[table_name]] <- summary_table
+      }
+    }
+  }
+  
+  return(tables)
+}
+
+# Function to create a comprehensive summary - FIXED to preserve separate rows
+create_comprehensive_summary <- function(summary_data) {
+  
+  # Create a comprehensive table with all combinations
+  comprehensive <- summary_data %>%
+    select(scenario, scenario_desc, outcome_type, proc_type, correlation, 
+           weight_method, coverage_issues) %>%
+    # Create a combined identifier for the columns
+    unite("method_id", outcome_type, proc_type, correlation, weight_method, sep = "_") %>%
+    select(scenario, scenario_desc, method_id, coverage_issues) %>%
+    pivot_wider(
+      names_from = method_id,
+      values_from = coverage_issues,
+      values_fill = 0
+    ) %>%
+    arrange(scenario)
+  
+  return(comprehensive)
+}
+
+# Run the analysis functions with enhanced debugging
+cat("=== Creating method mapping ===\n")
+method_mapping <- create_method_mapping(method_codes)
+
+cat("\n=== INVESTIGATING BATCH_OUTPUT STRUCTURE ===\n")
+
+# Let's see if batch_output actually contains different data for the same suffix
+# This will tell us if the issue is in our processing or in the original data
+
+suffix_investigation <- batch_output %>%
+  filter(suffix %in% c("1A", "1E"), Parm == "Intercept") %>%
+  select(suffix, Estimate, Coverage, `True Value`) %>%
+  arrange(suffix)
+
+cat("Batch output for suffixes 1A and 1E (Intercept parameter):\n")
+print(suffix_investigation)
+
+# Check if there are multiple rows for the same suffix in batch_output
+suffix_counts <- batch_output %>%
+  filter(suffix %in% c("1A", "1E")) %>%
+  group_by(suffix, Parm) %>%
+  summarise(n_rows = n(), .groups = "drop")
+
+cat("\nNumber of rows per suffix-parameter combination in batch_output:\n")
+print(suffix_counts)
+
+# Check method_mapping for these specific suffixes
+method_investigation <- method_mapping %>%
+  filter(suffix %in% c("1A", "1E")) %>%
+  select(suffix, correlation, weight_method, scenario, proc_type, outcome_type)
+
+cat("\nMethod mapping for suffixes 1A and 1E:\n")
+print(method_investigation)
+
+cat("\n=== CRITICAL QUESTION ===\n")
+cat("Does batch_output contain ONE row per suffix (same estimates for IND/EXCH)?\n")
+cat("Or does it contain SEPARATE rows for IND vs EXCH with different estimates?\n\n")
+
+cat("=== Creating detailed Excel blocks ===\n")
+excel_blocks <- create_excel_blocks(batch_output, method_mapping)
+
+cat("=== Creating summary data ===\n")
+summary_data <- create_summary_table(batch_output, method_mapping)
+
+# Additional debugging for summary data
+cat("\n=== SUMMARY DATA DEBUGGING ===\n")
+summary_debug <- summary_data %>%
+  filter(scenario == 1, outcome_type == "Continuous", proc_type == "GENMOD") %>%
+  select(correlation, weight_method, coverage_issues, total_params, avg_coverage) %>%
+  arrange(correlation, weight_method)
+
+cat("Summary data for Scenario 1, Continuous, GENMOD:\n")
+print(summary_debug)
+
+# Check if we're getting different data for IND vs EXCH
+correlation_comparison <- summary_data %>%
+  filter(scenario == 1, outcome_type == "Continuous", proc_type == "GENMOD", weight_method == "RR_glm") %>%
+  select(correlation, coverage_issues, avg_coverage, min_coverage, max_coverage)
+
+cat("\nCorrelation comparison for RR_glm:\n")
+print(correlation_comparison)
+
+cat("=== Creating summary data ===\n")
+summary_data <- create_summary_table(batch_output, method_mapping)
+
+cat("=== Creating clean summary tables ===\n")
+clean_summary_tables <- create_clean_summary_tables(summary_data)
+
+cat("=== Creating comprehensive summary ===\n")
+comprehensive_summary <- create_comprehensive_summary(summary_data)
+
+# Create Excel workbook with both detailed blocks and summary tables
+output_file <- paste0(main_path, "output//Complete_Coverage_Analysis_Results.xlsx")
+wb <- createWorkbook()
+
+# Add comprehensive summary first
+addWorksheet(wb, "Coverage_Issues_Summary")
+writeData(wb, "Coverage_Issues_Summary", comprehensive_summary)
+
+# Add each clean summary table
+for (table_name in names(clean_summary_tables)) {
+  sheet_name <- str_replace_all(table_name, "[^A-Za-z0-9_]", "_")
+  sheet_name <- substr(sheet_name, 1, 31) # Excel sheet name limit
+  addWorksheet(wb, sheet_name)
+  writeData(wb, sheet_name, clean_summary_tables[[table_name]])
+}
+
+# Add detailed blocks (structured batch output)
+for (block_name in names(excel_blocks)) {
+  sheet_name <- substr(block_name, 1, 31) # Excel sheet name limit
+  addWorksheet(wb, sheet_name)
+  writeData(wb, sheet_name, excel_blocks[[block_name]])
+}
+
+# Add raw summary data for reference
+addWorksheet(wb, "Raw_Summary_Data")
+writeData(wb, "Raw_Summary_Data", summary_data)
+
+# Save the workbook
+saveWorkbook(wb, output_file, overwrite = TRUE)
+cat("Complete analysis results saved to:", output_file, "\n")
+
+# Display what was created
+cat("\nExcel file contains the following sheets:\n")
+cat("=== SUMMARY SHEETS ===\n")
+cat("1. Coverage_Issues_Summary - Comprehensive summary with all method combinations\n")
+for (i in seq_along(clean_summary_tables)) {
+  cat(paste0(i+1, ". ", names(clean_summary_tables)[i], " - Clean summary table\n"))
+}
+
+cat("\n=== DETAILED BLOCKS (Structured Batch Output) ===\n")
+for (i in seq_along(excel_blocks)) {
+  cat(paste0(i+1, ". ", names(excel_blocks)[i], " - Detailed results block\n"))
+}
+
+cat(paste0("\n", length(excel_blocks)+1, ". Raw_Summary_Data - Raw data for reference\n"))
+
+# Show preview of tables and debugging info
+cat("\n=== PREVIEW OF COMPREHENSIVE SUMMARY ===\n")
+print(comprehensive_summary)
+
+cat("\n=== DEBUGGING: Check specific combination ===\n")
+debug_check <- summary_data %>%
+  filter(scenario == 1, outcome_type == "Continuous", proc_type == "GENMOD", 
+         correlation == "Exchangeable", weight_method == "RR_glm")
+if (nrow(debug_check) > 0) {
+  cat("Scenario 1, Continuous, GENMOD, Exchangeable, RR_glm summary:\n")
+  print(debug_check)
+} else {
+  cat("No data found for this combination\n")
+}
+
+cat("\n=== PREVIEW OF FIRST CLEAN TABLE ===\n")
+if (length(clean_summary_tables) > 0) {
+  cat("Table:", names(clean_summary_tables)[1], "\n")
+  print(clean_summary_tables[[1]])
+}
+
+cat("\n=== PREVIEW OF FIRST DETAILED BLOCK ===\n")
+if (length(excel_blocks) > 0) {
+  cat("Block:", names(excel_blocks)[1], "\n")
+  print(head(excel_blocks[[1]]))
+}# Load required libraries
+library(readxl)
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(openxlsx)
+
+# Set file path
+main_path <- "C://Users//zhaob//OneDrive - University of North Carolina at Chapel Hill//CSCC//HCHS//V3_SIM//suddan//HCHS_simulation//"
+file_path <- paste0(main_path, "output//alex//GENMOD - GEE Results.xlsx")
+
+# Read data
+method_codes <- read_excel(file_path, sheet = "Method Codes")
+batch_output <- read_excel(file_path, sheet = "Batch Output")
+
+# Enhanced function to parse method specifications
+create_method_mapping <- function(method_codes) {
   method_mapping <- method_codes %>%
     select(suffix, Spec, corr, mitype) %>%
     filter(!is.na(suffix) & !is.na(Spec)) %>%
@@ -39,7 +499,7 @@ create_method_mapping <- function(method_codes) {
       # Extract missing data method
       missing_method = case_when(
         str_detect(Spec, "\\[MI\\]") ~ "MI",
-        str_detect(Spec, "\\[NO MI\\]") ~ "No MI",
+        str_detect(Spec, "\\[NO MI\\]") ~ "NO MI",
         TRUE ~ "UNKNOWN"
       ),
       
@@ -67,160 +527,85 @@ create_method_mapping <- function(method_codes) {
         str_detect(Spec, "bghhsub_s2_v3_nr") ~ "V3_restricted", 
         str_detect(Spec, "bghhsub_s2_nr") ~ "visit_specific",
         TRUE ~ "full_sample"
+      ),
+      
+      # Create scenario description
+      scenario_desc = case_when(
+        scenario == 1 ~ "MI + V1 Weight (Full Sample)",
+        scenario == 2 ~ "No MI + V1 Weight (Full Sample)", 
+        scenario == 3 ~ "MI + V3 Adjusted Weight (Restricted Sample)",
+        scenario == 4 ~ "No MI + V3 Adjusted Weight (Restricted Sample)",
+        scenario == 5 ~ "MI + Visit-specific Weights (Full Sample)",
+        scenario == 6 ~ "No MI + Visit-specific Weights (Full Sample)",
+        TRUE ~ paste("Scenario", scenario)
       )
     )
   
   return(method_mapping)
 }
 
-# Function to count coverage issues
-count_coverage_issues <- function(batch_output, method_mapping) {
+# Function to count coverage issues and create summary table
+create_summary_table <- function(batch_output, method_mapping) {
   
-  # Join batch output with method mapping (handle many-to-many relationship)
-  results <- batch_output %>%
+  # Join and calculate coverage issues
+  coverage_data <- batch_output %>%
     left_join(method_mapping, by = "suffix", relationship = "many-to-many") %>%
     filter(!is.na(scenario)) %>%
-    # Count parameters with coverage outside 0.92-0.97 range
-    mutate(
-      coverage_issue = ifelse(Coverage < 0.92 | Coverage > 0.97, 1, 0)
-    ) %>%
-    # Remove duplicates that might arise from many-to-many join
     distinct(suffix, Parm, scenario, proc_type, correlation, missing_method, 
              weight_method, outcome_type, visit_restriction, .keep_all = TRUE) %>%
-    group_by(scenario, proc_type, correlation, missing_method, weight_method, 
-             outcome_type, visit_restriction) %>%
+    mutate(
+      coverage_issue = ifelse(Coverage < 0.92 | Coverage > 0.97, 1, 0)
+    )
+  
+  # Create summary for each scenario-weight combination
+  summary_data <- coverage_data %>%
+    group_by(scenario, scenario_desc, outcome_type, proc_type, correlation, 
+             weight_method, missing_method) %>%
     summarise(
       total_params = n(),
       coverage_issues = sum(coverage_issue, na.rm = TRUE),
       .groups = "drop"
     )
   
-  return(results)
+  return(summary_data)
 }
 
-# Function to create the summary table
-create_coverage_table <- function(coverage_results) {
+# Function to create a comprehensive summary table
+create_comprehensive_summary <- function(summary_data) {
   
-  # Remove the filter for continuous outcomes and GENMOD procedure
-  table_data <- coverage_results %>%
-    # Create description based on scenario and other characteristics
-    mutate(
-      description = case_when(
-        scenario == 1 & visit_restriction == "full_sample" ~ "1 - MI + V1 Weight (Full Sample)",
-        scenario == 2 & visit_restriction == "full_sample" ~ "2 - No MI + V1 Weight (Full Sample)", 
-        scenario == 3 & visit_restriction == "V3_restricted" ~ "3 - MI + V3 Adjusted Weight (Restricted Sample)",
-        scenario == 4 & visit_restriction == "V3_restricted" ~ "4 - No MI + V3 Adjusted Weight (Restricted Sample)",
-        scenario == 5 & visit_restriction == "visit_specific" ~ "5 - MI + Visit-specific Weights (Full Sample)",
-        scenario == 6 & visit_restriction == "visit_specific" ~ "6 - No MI + Visit-specific Weights (Full Sample)",
-        TRUE ~ paste("Scenario", scenario)
-      )
-    )
-  
-  # Pivot to create the desired table format
-  table_wide <- table_data %>%
-    select(description, outcome_type, proc_type, correlation, weight_method, coverage_issues) %>%
-    # Keep all 5 weight method categories separate
+  # Create a comprehensive table with all combinations
+  comprehensive <- summary_data %>%
+    select(scenario, scenario_desc, outcome_type, proc_type, correlation, 
+           weight_method, coverage_issues) %>%
+    # Create a combined identifier for the columns
+    unite("method_id", outcome_type, proc_type, correlation, weight_method, sep = "_") %>%
+    select(scenario, scenario_desc, method_id, coverage_issues) %>%
     pivot_wider(
-      names_from = c(outcome_type, proc_type, correlation, weight_method),
+      names_from = method_id,
       values_from = coverage_issues,
-      names_sep = "_"
+      values_fill = 0
     ) %>%
-    arrange(description)
+    arrange(scenario)
   
-  return(table_wide)
+  return(comprehensive)
 }
 
-# Function to format the final table for display
-format_coverage_table <- function(table_wide) {
-  
-  # Check what columns actually exist
-  cat("Available columns in table_wide:", paste(names(table_wide), collapse = ", "), "\n")
-  
-  # Create the formatted table based on available columns
-  formatted_table <- table_wide
-  
-  # Since we now have all combinations, create a more comprehensive mapping
-  # The columns will be named like: Outcome_Procedure_Correlation_WeightMethod
-  # Examples: Continuous_GENMOD_Independent_RR_glm, Binary_GEE_Exchangeable_RR_NRadj_strat, etc.
-  
-  # Create shorter, more readable column names
-  formatted_table <- formatted_table %>%
-    rename_with(~ gsub("Continuous_", "Cont_", .x)) %>%
-    rename_with(~ gsub("Binary_", "Bin_", .x)) %>%
-    rename_with(~ gsub("GENMOD_", "GM_", .x)) %>%
-    rename_with(~ gsub("GEE_", "GEE_", .x)) %>%
-    rename_with(~ gsub("Independent_", "Ind_", .x)) %>%
-    rename_with(~ gsub("Exchangeable_", "Exch_", .x)) %>%
-    rename_with(~ gsub("RR_glm_agestrat_strat", "RR_glm_age", .x)) %>%
-    rename_with(~ gsub("RR_glm_strat", "RR_glm_str", .x)) %>%
-    rename_with(~ gsub("RR_NRadj_strat", "RR_NRadj_str", .x))
-  
-  # Replace NA with "-" for better display
-  formatted_table <- formatted_table %>%
-    mutate(across(where(is.numeric), ~ifelse(is.na(.x), "-", as.character(.x))))
-  
-  return(formatted_table)
-}
-
-# Main execution
+# Run the analysis functions
 cat("=== Creating method mapping ===\n")
 method_mapping <- create_method_mapping(method_codes)
 
-cat("=== Counting coverage issues ===\n") 
-coverage_results <- count_coverage_issues(batch_output, method_mapping)
+cat("=== Creating summary data ===\n")
+summary_data <- create_summary_table(batch_output, method_mapping)
 
-cat("=== Creating comprehensive coverage table ===\n")
-# Create one comprehensive table with all data
-comprehensive_table <- create_coverage_table(coverage_results)
-comprehensive_final <- format_coverage_table(comprehensive_table)
+cat("=== Creating comprehensive summary ===\n")
+comprehensive_summary <- create_comprehensive_summary(summary_data)
 
-# Display the comprehensive results
-cat("\n=== COMPREHENSIVE COVERAGE ISSUES SUMMARY ===\n")
-cat("Number of parameters with coverage outside 0.92-0.97 range\n")
-cat("Organized by: Outcome Type | Procedure | Correlation | Weight Method\n\n")
-print(comprehensive_final, row.names = FALSE)
+# Output just the Excel file with clean summary tables
+output_file <- paste0(main_path, "output//Clean_Coverage_Summary_Tables.xlsx")
 
-# Create filtered summaries for easier viewing
-cat("\n=== CONTINUOUS OUTCOME, PROC GENMOD ===\n")
-continuous_genmod_detailed <- coverage_results %>%
-  filter(outcome_type == "Continuous", proc_type == "GENMOD") %>%
-  arrange(scenario, correlation, weight_method) %>%
-  mutate(description_text = paste("Scenario", scenario)) %>%
-  select(scenario, description_text, correlation, weight_method, 
-         total_params, coverage_issues)
-print(continuous_genmod_detailed, row.names = FALSE)
+# Create Excel workbook with clean summary tables
+wb <- createWorkbook()
 
-cat("\n=== BINARY OUTCOME, PROC GENMOD ===\n")
-binary_genmod_detailed <- coverage_results %>%
-  filter(outcome_type == "Binary", proc_type == "GENMOD") %>%
-  arrange(scenario, correlation, weight_method) %>%
-  mutate(description_text = paste("Scenario", scenario)) %>%
-  select(scenario, description_text, correlation, weight_method, 
-         total_params, coverage_issues)
-print(binary_genmod_detailed, row.names = FALSE)
-
-# Summary by weight method to show the 5 categories
-cat("\n=== Summary by Weight Method (All 5 Categories) ===\n")
-weight_summary <- coverage_results %>%
-  group_by(weight_method, outcome_type, proc_type) %>%
-  summarise(
-    scenarios = n_distinct(scenario),
-    total_coverage_issues = sum(coverage_issues),
-    avg_coverage_issues = round(mean(coverage_issues), 2),
-    .groups = "drop"
-  ) %>%
-  arrange(outcome_type, proc_type, weight_method)
-print(weight_summary)
-
-# Save results
-coverage_summary <- list(
-  method_mapping = method_mapping,
-  coverage_results = coverage_results,
-  comprehensive_table = comprehensive_final,
-  continuous_genmod = continuous_genmod_detailed,
-  binary_genmod = binary_genmod_detailed,
-  weight_method_summary = weight_summary
-)
-
-# Return the summary for further use
-coverage_summary
+# Add comprehensive summary first
+addWorksheet(wb, "All_Combinations")
+writeData(wb, "All_Combinations", comprehensive_summary)
