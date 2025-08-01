@@ -1,25 +1,27 @@
 %include "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\scripts\_init.sas";
 
-proc printto log = "&homepath./logs/s2_combine_&sysdate..log"
-			 print= "&homepath./lst/s2_combine_&sysdate..lst" new; run; 
+proc printto log = "&homepath./logs/1_combine_mi_sudaan_&sysdate..log"
+			 print= "&homepath./lst/1_combine_mi_sudaan_&sysdate..lst" new; run; 
 *********************************************************************************************************
         
-        PROGRAM NAME: s2_combine.sas
+        PROGRAM NAME: combine_mi_sudaan_pop.sas
 
         PROGRAMMER: AQA    
 
         DESCRIPTION:  
 
         VERSION CONTROL:
-						- 20FEB25: Initialize the code 	
+						- 24APR25: Initialize the code 	
 
 *********************************************************************************************************;
 
 
-%macro combine_betas(start=1, end=1000, corr=);
+%macro combine_mi_betas(start=1, end=100, corr=exchangeable, rr=glm);
 * merge files containing beta estimates using sample data;
 data merge_betas;
-	set dt_b_s2.&corr._&start. - dt_b_s2.&corr._&end.;
+	set dt_betas.betas_mi_&corr._&rr._&start. - dt_betas.betas_mi_&corr._&rr._&end.;
+
+	if parm = 'intercept' then parm = 'Intercept';
 run;
 
 * append the true value coming from population estimates; 
@@ -36,8 +38,8 @@ quit;
 * Compute 95% confidence intervals;
 data betas_samp_pop; 
 	set betas_samp_pop;
-	uppercl = Estimate + 1.965 * Stderr; 
-	lowercl = Estimate - 1.965 * Stderr; 
+	uppercl = Estimate + 1.975 * Stderr; 
+	lowercl = Estimate - 1.975 * Stderr; 
 run;
 
 * Estimate quantities of interest: bias, ...; 
@@ -66,7 +68,7 @@ data output;
       relse=estse/empse-1;
 run;
 
-ods rtf file="&homepath./output/reports/s2_combine_&corr._&sysdate..rtf" style=journal bodytitle;
+ods rtf file="&homepath./output/reports/1_combine_mi_sudaan_&corr._&rr._&sysdate..rtf" style=journal bodytitle;
         proc print data=output noobs label;
 		var parm true estimate empbias relbias empse estse relse coverage prejecth0;
         label parm='Effect' true='True Value' estimate='Estimate'
@@ -76,10 +78,20 @@ ods rtf file="&homepath./output/reports/s2_combine_&corr._&sysdate..rtf" style=j
                         relse='Relative SE difference';
 run;
 ods rtf close;
-%mend combine_betas;
+%mend combine_mi_betas;
 
-%combine_betas(corr=exch);
-%combine_betas(corr=ind);
+* glm ;
+	* exchangeable;
+%combine_mi_betas();
+	* independent;
+%combine_mi_betas(corr=independent);
+	 
+* NRadj;
+	* exchangeable;
+%combine_mi_betas(rr=NRadj);
+	* independent; 
+%combine_mi_betas(corr=independent, rr=NRadj);
+
 
 proc printto; run;
 

@@ -1,0 +1,1738 @@
+                               The SAS System                               1
+                                                 10:39 Friday, August 1, 2025
+
+                              The MI Procedure
+
+                             Model Information
+
+        Data Set                             WORK.SAMP_WIDE         
+        Method                               FCS                    
+        Number of Imputations                5                      
+        Number of Burn-in Iterations         20                     
+        Seed for random number generator     2021                   
+
+
+                           FCS Model Specification
+ 
+Method                 Imputed Variables
+
+Regression             age_strat_new w_nr_1 w_nr_2 w_nr_3 x12 x14 x17 x18    
+                       x6_2 x6_3 y_bmi_1 y_bmi_2 y_bmi_3 y_gfr_1 y_gfr_2     
+                       y_gfr_3                                               
+Discriminant Function  strat_psu                                             
+                               The SAS System                               2
+                                                 10:39 Friday, August 1, 2025
+
+                              The MI Procedure
+
+                            Missing Data Patterns
+ 
+           age_
+           strat_
+    Group  new     w_nr_1  w_nr_2  w_nr_3  x12  x14  x17  x18  x6_2  x6_3
+
+        1  X       X       X       X       X    X    X    X    X     X   
+        2  X       X       X       .       X    X    X    X    X     .   
+        3  X       X       .       X       X    X    X    X    .     X   
+        4  X       X       .       .       X    X    X    X    .     .   
+
+ 
+ 
+                            Missing Data Patterns
+ 
+Group  y_bmi_1   y_bmi_2   y_bmi_3   y_gfr_1   y_gfr_2   y_gfr_3   strat_psu
+
+    1  X         X         X         X         X         X         X        
+    2  X         X         .         X         X         .         X        
+                               The SAS System                               3
+                                                 10:39 Friday, August 1, 2025
+
+                              The MI Procedure
+
+ 
+ 
+                            Missing Data Patterns
+ 
+Group  y_bmi_1   y_bmi_2   y_bmi_3   y_gfr_1   y_gfr_2   y_gfr_3   strat_psu
+
+    3  X         .         X         X         .         X         X        
+    4  X         .         .         X         .         .         X        
+
+                            Missing Data Patterns
+ 
+                                -----------------Group Means----------------
+                                  age_strat_
+ Group      Freq     Percent             new          w_nr_1          w_nr_2
+
+     1      7566       47.38        0.693629        0.931397        1.380401
+     2      2906       18.20        0.513421        1.002544        1.912965
+     3       761        4.77        0.377135        1.057211               .
+     4      4736       29.66        0.195946        1.098843               .
+                               The SAS System                               4
+                                                 10:39 Friday, August 1, 2025
+
+                              The MI Procedure
+
+ 
+                            Missing Data Patterns
+ 
+        -----------------------------Group Means----------------------------
+ Group        w_nr_3           x12           x14           x17           x18
+
+     1      1.316973      0.479778      0.288395      4.493960      0.164288
+     2             .      0.516173      0.228837      4.356270      0.218513
+     3      7.887895      0.517740      0.247043      4.194063      0.264126
+     4             .      0.530405      0.203336      4.067269      0.334459
+
+ 
+                            Missing Data Patterns
+ 
+        -----------------------------Group Means----------------------------
+ Group          x6_2          x6_3       y_bmi_1       y_bmi_2       y_bmi_3
+
+     1      5.996274     11.189478     31.611105     38.668273     44.891722
+     2      5.999087             .     30.207525     36.602378             .
+                               The SAS System                               5
+                                                 10:39 Friday, August 1, 2025
+
+                              The MI Procedure
+
+ 
+                            Missing Data Patterns
+ 
+        -----------------------------Group Means----------------------------
+ Group          x6_2          x6_3       y_bmi_1       y_bmi_2       y_bmi_3
+
+     3             .     11.187014     29.578254             .     40.996600
+     4             .             .     27.912883             .             .
+
+ 
+                            Missing Data Patterns
+ 
+                    -----------------Group Means----------------
+             Group       y_gfr_1         y_gfr_2         y_gfr_3
+
+                 1     97.885200      134.397738      166.162028
+                 2    100.103490      135.750438               .
+                 3    102.064216               .      167.360924
+                 4    104.802654               .               .
+                               The SAS System                               6
+                                                 10:39 Friday, August 1, 2025
+
+                              The MI Procedure
+
+ 
+                    Variance Information (5 Imputations)
+ 
+                     -----------------Variance-----------------
+    Variable              Between         Within          Total       DF
+
+    w_nr_2               0.003663       0.000961       0.005356   5.9282
+    w_nr_3               0.000182       0.000779       0.000997    82.88
+    x6_2              0.000048512    0.000015948    0.000074163   6.4797
+    x6_3              0.000034054    0.000031769    0.000072634   12.614
+    y_bmi_2              0.007026       0.005553       0.013984   10.986
+    y_bmi_3              0.007006       0.010197       0.018604   19.544
+    y_gfr_2              0.001752       0.014489       0.016591   244.71
+    y_gfr_3              0.002478       0.023137       0.026111   301.75
+
+                               The SAS System                               7
+                                                 10:39 Friday, August 1, 2025
+
+                              The MI Procedure
+
+                    Variance Information (5 Imputations)
+ 
+                              Relative       Fraction
+                              Increase        Missing       Relative
+         Variable          in Variance    Information     Efficiency
+
+         w_nr_2               4.573323       0.860712       0.853139
+         w_nr_3               0.280338       0.237029       0.954740
+         x6_2                 3.650150       0.830265       0.857594
+         x6_3                 1.286339       0.618563       0.889907
+         y_bmi_2              1.518095       0.659585       0.883457
+         y_bmi_3              0.824451       0.500421       0.909021
+         y_gfr_2              0.145113       0.133652       0.973966
+         y_gfr_3              0.128542       0.119593       0.976640
+
+
+                               The SAS System                               8
+                                                 10:39 Friday, August 1, 2025
+
+                              The MI Procedure
+
+ 
+                     Parameter Estimates (5 Imputations)
+ 
+Variable               Mean      Std Error    95% Confidence Limits        DF
+
+w_nr_2             2.427501       0.073185       2.2479       2.6071   5.9282
+w_nr_3             2.205532       0.031574       2.1427       2.2683    82.88
+x6_2               5.996225       0.008612       5.9755       6.0169   6.4797
+x6_3              11.187833       0.008523      11.1694      11.2063   12.614
+y_bmi_2           36.617657       0.118254      36.3573      36.8780   10.986
+y_bmi_3           42.142826       0.136396      41.8579      42.4278   19.544
+y_gfr_2          135.990149       0.128808     135.7364     136.2439   244.71
+y_gfr_3          166.785183       0.161588     166.4672     167.1032   301.75
+
+                               The SAS System                               9
+                                                 10:39 Friday, August 1, 2025
+
+                              The MI Procedure
+
+ 
+                     Parameter Estimates (5 Imputations)
+ 
+          Variable            Minimum        Maximum            Mu0
+
+          w_nr_2             2.368955       2.515915              0
+          w_nr_3             2.195093       2.227343              0
+          x6_2               5.992331       6.008643              0
+          x6_3              11.182920      11.197425              0
+          y_bmi_2           36.477729      36.695300              0
+          y_bmi_3           42.012672      42.228705              0
+          y_gfr_2          135.919945     136.029008              0
+          y_gfr_3          166.717124     166.856913              0
+
+                               The SAS System                              10
+                                                 10:39 Friday, August 1, 2025
+
+                              The MI Procedure
+
+                     Parameter Estimates (5 Imputations)
+ 
+                                    t for H0:
+                     Variable        Mean=Mu0   Pr > |t|
+
+                     w_nr_2             33.17     <.0001
+                     w_nr_3             69.85     <.0001
+                     x6_2              696.28     <.0001
+                     x6_3             1312.73     <.0001
+                     y_bmi_2           309.65     <.0001
+                     y_bmi_3           308.97     <.0001
+                     y_gfr_2          1055.76     <.0001
+                     y_gfr_3          1032.16     <.0001
+                                 The SAS System                               11
+                                                    10:39 Friday, August 1, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+ 
+ 
+Number of observations read       :  47907    Weighted count:    47907
+Observations used in the analysis :  47907    Weighted count:    47907
+Denominator degrees of freedom    :  11672
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File TEMP contains 11676 Clusters
+11676 clusters were used to fit the model
+Maximum cluster size is  18 records
+Minimum cluster size is   3 records
+ 
+Weighted mean response is 134.203256
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.783525
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  1   
+Time: 10:41:28                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  105.45         1.30       102.91       107.99        
+X17                         -1.26         0.32        -1.88        -0.64        
+X12                          8.11         0.30         7.53         8.70        
+X18                         -8.45         0.38        -9.20        -7.71        
+Y_BMI                        0.04         0.01         0.01         0.06        
+AGE_STRAT_NEW               -4.91         0.50        -5.88        -3.94        
+X6                           5.87         0.02         5.83         5.91        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  2   
+Time: 10:41:28                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   81.31     0.0000                                    
+X17                         -3.99     0.0001                                    
+X12                         26.97     0.0000                                    
+X18                        -22.27     0.0000                                    
+Y_BMI                        2.39     0.0166                                    
+AGE_STRAT_NEW               -9.91     0.0000                                    
+X6                         289.98     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  3   
+Time: 10:41:28                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    192073.41     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     29864.67     0.0000                         
+INTERCEPT                     1      6612.11     0.0000                         
+X17                           1        15.93     0.0001                         
+X12                           1       727.53     0.0000                         
+X18                           1       496.13     0.0000                         
+Y_BMI                         1         5.73     0.0166                         
+AGE_STRAT_NEW                 1        98.15     0.0000                         
+X6                            1     84086.79     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                               15
+                                                    10:39 Friday, August 1, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+ 
+ 
+Number of observations read       :  47907    Weighted count:    47907
+Observations used in the analysis :  47907    Weighted count:    47907
+Denominator degrees of freedom    :  11672
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File TEMP contains 11676 Clusters
+11676 clusters were used to fit the model
+Maximum cluster size is  18 records
+Minimum cluster size is   3 records
+ 
+Weighted mean response is 134.306635
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.784340
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  1   
+Time: 10:41:29                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  105.90         1.31       103.33       108.46        
+X17                         -1.30         0.32        -1.92        -0.68        
+X12                          8.01         0.30         7.42         8.60        
+X18                         -8.39         0.38        -9.14        -7.64        
+Y_BMI                        0.03         0.01        -0.00         0.05        
+AGE_STRAT_NEW               -4.80         0.50        -5.79        -3.81        
+X6                           5.89         0.02         5.85         5.93        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  2   
+Time: 10:41:29                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   80.89     0.0000                                    
+X17                         -4.10     0.0000                                    
+X12                         26.56     0.0000                                    
+X18                        -21.96     0.0000                                    
+Y_BMI                        1.75     0.0795                                    
+AGE_STRAT_NEW               -9.53     0.0000                                    
+X6                         288.25     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  3   
+Time: 10:41:29                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    192162.30     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     31419.51     0.0000                         
+INTERCEPT                     1      6543.31     0.0000                         
+X17                           1        16.80     0.0000                         
+X12                           1       705.30     0.0000                         
+X18                           1       482.07     0.0000                         
+Y_BMI                         1         3.07     0.0795                         
+AGE_STRAT_NEW                 1        90.83     0.0000                         
+X6                            1     83086.73     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                               19
+                                                    10:39 Friday, August 1, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+ 
+ 
+Number of observations read       :  47907    Weighted count:    47907
+Observations used in the analysis :  47907    Weighted count:    47907
+Denominator degrees of freedom    :  11672
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File TEMP contains 11676 Clusters
+11676 clusters were used to fit the model
+Maximum cluster size is  18 records
+Minimum cluster size is   3 records
+ 
+Weighted mean response is 134.252875
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.784338
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  1   
+Time: 10:41:33                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  106.18         1.30       103.64       108.72        
+X17                         -1.33         0.32        -1.96        -0.71        
+X12                          8.08         0.30         7.49         8.68        
+X18                         -8.27         0.38        -9.02        -7.52        
+Y_BMI                        0.02         0.01        -0.01         0.05        
+AGE_STRAT_NEW               -4.74         0.50        -5.72        -3.77        
+X6                           5.90         0.02         5.86         5.94        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  2   
+Time: 10:41:33                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   81.82     0.0000                                    
+X17                         -4.19     0.0000                                    
+X12                         26.82     0.0000                                    
+X18                        -21.63     0.0000                                    
+Y_BMI                        1.28     0.2017                                    
+AGE_STRAT_NEW               -9.53     0.0000                                    
+X6                         279.06     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  3   
+Time: 10:41:33                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    192118.01     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     31184.69     0.0000                         
+INTERCEPT                     1      6694.70     0.0000                         
+X17                           1        17.53     0.0000                         
+X12                           1       719.21     0.0000                         
+X18                           1       467.88     0.0000                         
+Y_BMI                         1         1.63     0.2017                         
+AGE_STRAT_NEW                 1        90.91     0.0000                         
+X6                            1     77873.68     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                               23
+                                                    10:39 Friday, August 1, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+ 
+ 
+Number of observations read       :  47907    Weighted count:    47907
+Observations used in the analysis :  47907    Weighted count:    47907
+Denominator degrees of freedom    :  11672
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File TEMP contains 11676 Clusters
+11676 clusters were used to fit the model
+Maximum cluster size is  18 records
+Minimum cluster size is   3 records
+ 
+Weighted mean response is 134.220834
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.782491
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  1   
+Time: 10:41:33                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  105.67         1.31       103.10       108.23        
+X17                         -1.31         0.32        -1.93        -0.68        
+X12                          8.10         0.30         7.50         8.70        
+X18                         -8.45         0.38        -9.20        -7.70        
+Y_BMI                        0.04         0.01         0.01         0.06        
+AGE_STRAT_NEW               -4.87         0.50        -5.85        -3.89        
+X6                           5.87         0.02         5.83         5.91        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  2   
+Time: 10:41:33                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   80.77     0.0000                                    
+X17                         -4.10     0.0000                                    
+X12                         26.56     0.0000                                    
+X18                        -21.99     0.0000                                    
+Y_BMI                        2.48     0.0132                                    
+AGE_STRAT_NEW               -9.74     0.0000                                    
+X6                         286.06     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  3   
+Time: 10:41:33                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    192246.62     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     30522.24     0.0000                         
+INTERCEPT                     1      6523.15     0.0000                         
+X17                           1        16.80     0.0000                         
+X12                           1       705.66     0.0000                         
+X18                           1       483.45     0.0000                         
+Y_BMI                         1         6.14     0.0132                         
+AGE_STRAT_NEW                 1        94.86     0.0000                         
+X6                            1     81830.58     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                               27
+                                                    10:39 Friday, August 1, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+ 
+ 
+Number of observations read       :  47907    Weighted count:    47907
+Observations used in the analysis :  47907    Weighted count:    47907
+Denominator degrees of freedom    :  11672
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File TEMP contains 11676 Clusters
+11676 clusters were used to fit the model
+Maximum cluster size is  18 records
+Minimum cluster size is   3 records
+ 
+Weighted mean response is 134.297245
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.783822
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  1   
+Time: 10:41:34                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  105.64         1.31       103.08       108.21        
+X17                         -1.27         0.32        -1.90        -0.65        
+X12                          8.10         0.30         7.51         8.69        
+X18                         -8.28         0.38        -9.03        -7.54        
+Y_BMI                        0.03         0.01         0.00         0.06        
+AGE_STRAT_NEW               -4.96         0.50        -5.95        -3.97        
+X6                           5.89         0.02         5.85         5.93        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  2   
+Time: 10:41:34                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   80.68     0.0000                                    
+X17                         -4.00     0.0001                                    
+X12                         26.90     0.0000                                    
+X18                        -21.79     0.0000                                    
+Y_BMI                        2.11     0.0352                                    
+AGE_STRAT_NEW               -9.85     0.0000                                    
+X6                         287.17     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  3   
+Time: 10:41:34                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    190791.93     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     30479.77     0.0000                         
+INTERCEPT                     1      6509.31     0.0000                         
+X17                           1        16.00     0.0001                         
+X12                           1       723.49     0.0000                         
+X18                           1       474.80     0.0000                         
+Y_BMI                         1         4.44     0.0352                         
+AGE_STRAT_NEW                 1        96.96     0.0000                         
+X6                            1     82464.08     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                               31
+                                                    10:39 Friday, August 1, 2025
+
+                            The MIANALYZE Procedure
+
+                               Model Information
+
+                    PARMS Data Set            WORK.OUTPARMS
+                    Number of Imputations     5            
+
+
+                      Variance Information (5 Imputations)
+ 
+                       -----------------Variance-----------------
+      Parameter             Between         Within          Total       DF
+
+      intercept            0.078247       1.701161       1.795057   1461.9
+      x17                  0.000793       0.100992       0.101944    45880
+      x12                  0.001691       0.091197       0.093226   8440.6
+      x18                  0.007954       0.145691       0.155236     1058
+      y_bmi             0.000054737       0.000214       0.000280   72.514
+      age_strat_new        0.007346       0.250038       0.258853     3449
+      x6                   0.000128       0.000423       0.000576   56.697
+
+                     Variance Information (5 Imputations)
+ 
+                               Relative       Fraction
+                               Increase        Missing       Relative
+          Parameter         in Variance    Information     Efficiency
+
+          intercept            0.055195       0.053602       0.989393
+          x17                  0.009425       0.009380       0.998127
+          x12                  0.022254       0.022001       0.995619
+          x18                  0.065516       0.063257       0.987507
+          y_bmi                0.306959       0.255130       0.951451
+          age_strat_new        0.035256       0.034615       0.993125
+          x6                   0.361681       0.290218       0.945141
+
+
+ 
+                      Parameter Estimates (5 Imputations)
+ 
+Parameter            Estimate      Std Error    95% Confidence Limits        DF
+
+intercept          105.767355       1.339797     103.1392     108.3955   1461.9
+
+ 
+                      Parameter Estimates (5 Imputations)
+ 
+                  Parameter             Minimum        Maximum
+
+                  intercept          105.451977     106.179940
+
+                      Parameter Estimates (5 Imputations)
+ 
+                                                 t for H0:
+          Parameter              Theta0   Parameter=Theta0   Pr > |t|
+
+          intercept                   0              78.94     <.0001
+                                 The SAS System                               32
+                                                    10:39 Friday, August 1, 2025
+
+                            The MIANALYZE Procedure
+
+ 
+                      Parameter Estimates (5 Imputations)
+ 
+Parameter            Estimate      Std Error    95% Confidence Limits        DF
+
+x17                 -1.295002       0.319287      -1.9208      -0.6692    45880
+x12                  8.081568       0.305330       7.4830       8.6801   8440.6
+x18                 -8.369454       0.394000      -9.1426      -7.5963     1058
+y_bmi                0.029321       0.016723      -0.0040       0.0627   72.514
+age_strat_new       -4.855948       0.508776      -5.8535      -3.8584     3449
+x6                   5.882825       0.024001       5.8348       5.9309   56.697
+
+ 
+                      Parameter Estimates (5 Imputations)
+ 
+                  Parameter             Minimum        Maximum
+
+                  x17                 -1.332699      -1.261158
+                  x12                  8.010611       8.114757
+                  x18                 -8.452381      -8.267617
+                  y_bmi                0.018413       0.036261
+                  age_strat_new       -4.961287      -4.743474
+                  x6                   5.868860       5.896714
+
+                      Parameter Estimates (5 Imputations)
+ 
+                                                 t for H0:
+          Parameter              Theta0   Parameter=Theta0   Pr > |t|
+
+          x17                         0              -4.06     <.0001
+          x12                         0              26.47     <.0001
+          x18                         0             -21.24     <.0001
+          y_bmi                       0               1.75     0.0838
+          age_strat_new               0              -9.54     <.0001
+          x6                          0             245.11     <.0001
+                                 The SAS System                               33
+                                                    10:39 Friday, August 1, 2025
+
+                                The MI Procedure
+
+                               Model Information
+
+          Data Set                             WORK.SAMP_WIDE         
+          Method                               FCS                    
+          Number of Imputations                5                      
+          Number of Burn-in Iterations         20                     
+          Seed for random number generator     2021                   
+
+
+                            FCS Model Specification
+ 
+Method                 Imputed Variables
+
+Regression             age_strat_new w_nr_1 w_nr_2 w_nr_3 x12 x14 x17 x18 x6_2  
+                       x6_3 y_bmi_1 y_bmi_2 y_bmi_3 y_gfr_1 y_gfr_2 y_gfr_3     
+Discriminant Function  strat_psu                                                
+
+
+                              Missing Data Patterns
+ 
+        age_
+        strat_
+ Group  new     w_nr_1  w_nr_2  w_nr_3  x12  x14  x17  x18  x6_2  x6_3  y_bmi_1
+
+     1  X       X       X       X       X    X    X    X    X     X     X      
+     2  X       X       X       .       X    X    X    X    X     .     X      
+     3  X       X       .       X       X    X    X    X    .     X     X      
+     4  X       X       .       .       X    X    X    X    .     .     X      
+
+                             Missing Data Patterns
+ 
+ Group  y_bmi_2   y_bmi_3   y_gfr_1   y_gfr_2   y_gfr_3   strat_psu       Freq
+
+     1  X         X         X         X         X         X               7256
+     2  X         .         X         X         .         X               2895
+     3  .         X         X         .         X         X                868
+     4  .         .         X         .         .         X               4399
+
+                             Missing Data Patterns
+ 
+                    -----------------------Group Means-----------------------
+                      age_strat_
+  Group   Percent            new         w_nr_1         w_nr_2         w_nr_3
+
+      1     47.06       0.691014       0.945620       1.390380       1.353331
+      2     18.78       0.504663       0.966048       1.880932              .
+      3      5.63       0.361751       1.065820              .       6.497011
+      4     28.53       0.184360       1.099054              .              .
+
+                                 The SAS System                               34
+                                                    10:39 Friday, August 1, 2025
+
+                                The MI Procedure
+
+                             Missing Data Patterns
+ 
+       -------------------------------Group Means------------------------------
+Group           x12            x14            x17            x18           x6_2
+
+    1      0.484151       0.288727       4.497980       0.155458       5.997412
+    2      0.519516       0.223834       4.329404       0.216580       6.006325
+    3      0.498848       0.264977       4.186995       0.241935              .
+    4      0.502842       0.199363       4.039998       0.342578              .
+
+                             Missing Data Patterns
+ 
+       -------------------------------Group Means------------------------------
+Group          x6_3        y_bmi_1        y_bmi_2        y_bmi_3        y_gfr_1
+
+    1     11.193070      31.563563      38.686220      45.052175      98.516451
+    2             .      29.995174      36.522239              .     100.735106
+    3     11.215677      29.897038              .      40.957896     103.130742
+    4             .      27.727398              .              .     105.444129
+
+                             Missing Data Patterns
+ 
+                             ---------Group Means--------
+                      Group       y_gfr_2         y_gfr_3
+
+                          1    135.167837      166.916610
+                          2    136.297284               .
+                          3             .      168.873068
+                          4             .               .
+
+
+ 
+                      Variance Information (5 Imputations)
+ 
+                       -----------------Variance-----------------
+      Variable              Between         Within          Total       DF
+
+      w_nr_2               0.001384       0.001690       0.003350   16.251
+      w_nr_3               0.000475       0.000604       0.001174   16.936
+      x6_2              0.000037946    0.000016372    0.000061907     7.38
+      x6_3              0.000031610    0.000032605    0.000070537   13.805
+      y_bmi_2              0.002833       0.005810       0.009210   29.271
+
+                     Variance Information (5 Imputations)
+ 
+                               Relative       Fraction
+                               Increase        Missing       Relative
+          Variable          in Variance    Information     Efficiency
+
+          w_nr_2               0.982567       0.547913       0.901240
+          w_nr_3               0.943507       0.536991       0.903018
+          x6_2                 2.781341       0.786433       0.864090
+          x6_3                 1.163363       0.592681       0.894026
+          y_bmi_2              0.585067       0.408105       0.924538
+                                 The SAS System                               35
+                                                    10:39 Friday, August 1, 2025
+
+                                The MI Procedure
+
+ 
+                      Variance Information (5 Imputations)
+ 
+                       -----------------Variance-----------------
+      Variable              Between         Within          Total       DF
+
+      y_bmi_3              0.002799       0.010503       0.013861   67.746
+      y_gfr_2              0.001131       0.015443       0.016801   587.16
+      y_gfr_3              0.001992       0.024705       0.027095   495.81
+
+                     Variance Information (5 Imputations)
+ 
+                               Relative       Fraction
+                               Increase        Missing       Relative
+          Variable          in Variance    Information     Efficiency
+
+          y_bmi_3              0.319757       0.263586       0.949923
+          y_gfr_2              0.087913       0.083796       0.983517
+          y_gfr_3              0.096758       0.091749       0.981981
+
+
+                      Parameter Estimates (5 Imputations)
+ 
+ Variable               Mean      Std Error    95% Confidence Limits        DF
+
+ w_nr_2             2.738813       0.057883       2.6163       2.8614   16.251
+ w_nr_3             2.111634       0.034257       2.0393       2.1839   16.936
+ x6_2               6.009788       0.007868       5.9914       6.0282     7.38
+ x6_3              11.197619       0.008399      11.1796      11.2157   13.805
+ y_bmi_2           36.583806       0.095966      36.3876      36.7800   29.271
+ y_bmi_3           42.270927       0.117733      42.0360      42.5059   67.746
+ y_gfr_2          136.584102       0.129617     136.3295     136.8387   587.16
+ y_gfr_3          167.180015       0.164606     166.8566     167.5034   495.81
+
+                      Parameter Estimates (5 Imputations)
+ 
+                                                            t for H0:
+Variable            Minimum        Maximum            Mu0    Mean=Mu0   Pr > |t|
+
+w_nr_2             2.707214       2.791197              0       47.32     <.0001
+w_nr_3             2.085116       2.134267              0       61.64     <.0001
+x6_2               6.003836       6.017531              0      763.82     <.0001
+x6_3              11.191615      11.205359              0     1333.26     <.0001
+y_bmi_2           36.521632      36.641098              0      381.22     <.0001
+y_bmi_3           42.184209      42.307553              0      359.04     <.0001
+y_gfr_2          136.543655     136.629603              0     1053.75     <.0001
+y_gfr_3          167.129637     167.245970              0     1015.64     <.0001
+                                 The SAS System                               36
+                                                    10:39 Friday, August 1, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+ 
+ 
+Number of observations read       :  46254    Weighted count:    46254
+Observations used in the analysis :  46254    Weighted count:    46254
+Denominator degrees of freedom    :  11220
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File TEMP contains 11224 Clusters
+11224 clusters were used to fit the model
+Maximum cluster size is  18 records
+Minimum cluster size is   3 records
+ 
+Weighted mean response is 134.870085
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.781704
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  1   
+Time: 10:42:46                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  107.77         1.29       105.24       110.29        
+X17                         -1.50         0.32        -2.12        -0.88        
+X12                          9.14         0.30         8.55         9.73        
+X18                         -8.49         0.38        -9.24        -7.75        
+Y_BMI                       -0.01         0.01        -0.03         0.02        
+AGE_STRAT_NEW               -4.58         0.50        -5.56        -3.60        
+X6                           5.89         0.02         5.85         5.93        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  2   
+Time: 10:42:46                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   83.78     0.0000                                    
+X17                         -4.73     0.0000                                    
+X12                         30.41     0.0000                                    
+X18                        -22.29     0.0000                                    
+Y_BMI                       -0.35     0.7281                                    
+AGE_STRAT_NEW               -9.17     0.0000                                    
+X6                         273.69     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  3   
+Time: 10:42:46                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    183649.37     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     24490.00     0.0000                         
+INTERCEPT                     1      7018.99     0.0000                         
+X17                           1        22.34     0.0000                         
+X12                           1       925.01     0.0000                         
+X18                           1       496.80     0.0000                         
+Y_BMI                         1         0.12     0.7281                         
+AGE_STRAT_NEW                 1        84.17     0.0000                         
+X6                            1     74905.16     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                               40
+                                                    10:39 Friday, August 1, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+ 
+ 
+Number of observations read       :  46254    Weighted count:    46254
+Observations used in the analysis :  46254    Weighted count:    46254
+Denominator degrees of freedom    :  11220
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File TEMP contains 11224 Clusters
+11224 clusters were used to fit the model
+Maximum cluster size is  18 records
+Minimum cluster size is   3 records
+ 
+Weighted mean response is 134.869153
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.781754
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  1   
+Time: 10:42:47                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  107.38         1.27       104.88       109.88        
+X17                         -1.48         0.32        -2.11        -0.86        
+X12                          9.13         0.30         8.54         9.71        
+X18                         -8.46         0.38        -9.21        -7.72        
+Y_BMI                        0.01         0.01        -0.02         0.03        
+AGE_STRAT_NEW               -4.70         0.49        -5.67        -3.74        
+X6                           5.88         0.02         5.84         5.92        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  2   
+Time: 10:42:47                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   84.26     0.0000                                    
+X17                         -4.65     0.0000                                    
+X12                         30.48     0.0000                                    
+X18                        -22.23     0.0000                                    
+Y_BMI                        0.40     0.6885                                    
+AGE_STRAT_NEW               -9.52     0.0000                                    
+X6                         274.73     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  3   
+Time: 10:42:47                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    184529.01     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     25770.94     0.0000                         
+INTERCEPT                     1      7099.49     0.0000                         
+X17                           1        21.62     0.0000                         
+X12                           1       928.96     0.0000                         
+X18                           1       494.31     0.0000                         
+Y_BMI                         1         0.16     0.6885                         
+AGE_STRAT_NEW                 1        90.71     0.0000                         
+X6                            1     75478.28     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                               44
+                                                    10:39 Friday, August 1, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+ 
+ 
+Number of observations read       :  46254    Weighted count:    46254
+Observations used in the analysis :  46254    Weighted count:    46254
+Denominator degrees of freedom    :  11220
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File TEMP contains 11224 Clusters
+11224 clusters were used to fit the model
+Maximum cluster size is  18 records
+Minimum cluster size is   3 records
+ 
+Weighted mean response is 134.912706
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.783055
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  1   
+Time: 10:42:47                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  107.13         1.27       104.64       109.62        
+X17                         -1.46         0.32        -2.08        -0.84        
+X12                          9.19         0.30         8.60         9.77        
+X18                         -8.46         0.38        -9.20        -7.72        
+Y_BMI                        0.01         0.01        -0.02         0.04        
+AGE_STRAT_NEW               -4.82         0.49        -5.78        -3.86        
+X6                           5.88         0.02         5.84         5.93        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  2   
+Time: 10:42:47                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   84.35     0.0000                                    
+X17                         -4.61     0.0000                                    
+X12                         30.70     0.0000                                    
+X18                        -22.39     0.0000                                    
+Y_BMI                        0.77     0.4426                                    
+AGE_STRAT_NEW               -9.81     0.0000                                    
+X6                         271.47     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  3   
+Time: 10:42:47                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    185476.96     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     25904.82     0.0000                         
+INTERCEPT                     1      7115.61     0.0000                         
+X17                           1        21.23     0.0000                         
+X12                           1       942.75     0.0000                         
+X18                           1       501.09     0.0000                         
+Y_BMI                         1         0.59     0.4426                         
+AGE_STRAT_NEW                 1        96.20     0.0000                         
+X6                            1     73695.05     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                               48
+                                                    10:39 Friday, August 1, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+ 
+ 
+Number of observations read       :  46254    Weighted count:    46254
+Observations used in the analysis :  46254    Weighted count:    46254
+Denominator degrees of freedom    :  11220
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File TEMP contains 11224 Clusters
+11224 clusters were used to fit the model
+Maximum cluster size is  18 records
+Minimum cluster size is   3 records
+ 
+Weighted mean response is 134.858281
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.781323
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  1   
+Time: 10:42:48                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  107.49         1.29       104.95       110.03        
+X17                         -1.48         0.32        -2.11        -0.86        
+X12                          9.12         0.30         8.53         9.72        
+X18                         -8.49         0.38        -9.24        -7.74        
+Y_BMI                        0.00         0.01        -0.03         0.03        
+AGE_STRAT_NEW               -4.69         0.50        -5.67        -3.71        
+X6                           5.88         0.02         5.84         5.92        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  2   
+Time: 10:42:48                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   83.09     0.0000                                    
+X17                         -4.65     0.0000                                    
+X12                         30.28     0.0000                                    
+X18                        -22.24     0.0000                                    
+Y_BMI                        0.25     0.8049                                    
+AGE_STRAT_NEW               -9.36     0.0000                                    
+X6                         277.35     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  3   
+Time: 10:42:48                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    183799.21     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     25782.20     0.0000                         
+INTERCEPT                     1      6904.61     0.0000                         
+X17                           1        21.59     0.0000                         
+X12                           1       916.64     0.0000                         
+X18                           1       494.41     0.0000                         
+Y_BMI                         1         0.06     0.8049                         
+AGE_STRAT_NEW                 1        87.60     0.0000                         
+X6                            1     76920.96     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                               52
+                                                    10:39 Friday, August 1, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+ 
+ 
+Number of observations read       :  46254    Weighted count:    46254
+Observations used in the analysis :  46254    Weighted count:    46254
+Denominator degrees of freedom    :  11220
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File TEMP contains 11224 Clusters
+11224 clusters were used to fit the model
+Maximum cluster size is  18 records
+Minimum cluster size is   3 records
+ 
+Weighted mean response is 134.880287
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.782622
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  1   
+Time: 10:42:49                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  106.79         1.28       104.28       109.29        
+X17                         -1.42         0.32        -2.05        -0.80        
+X12                          9.13         0.30         8.54         9.72        
+X18                         -8.41         0.38        -9.15        -7.67        
+Y_BMI                        0.02         0.01        -0.01         0.05        
+AGE_STRAT_NEW               -4.92         0.49        -5.89        -3.95        
+X6                           5.88         0.02         5.83         5.92        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  2   
+Time: 10:42:49                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   83.56     0.0000                                    
+X17                         -4.45     0.0000                                    
+X12                         30.47     0.0000                                    
+X18                        -22.33     0.0000                                    
+Y_BMI                        1.31     0.1906                                    
+AGE_STRAT_NEW               -9.96     0.0000                                    
+X6                         275.58     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 08-01-2025                     SUDAAN                          Page:  3   
+Time: 10:42:49                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    184624.90     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     26904.70     0.0000                         
+INTERCEPT                     1      6981.83     0.0000                         
+X17                           1        19.81     0.0000                         
+X12                           1       928.13     0.0000                         
+X18                           1       498.43     0.0000                         
+Y_BMI                         1         1.71     0.1906                         
+AGE_STRAT_NEW                 1        99.22     0.0000                         
+X6                            1     75946.76     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                               56
+                                                    10:39 Friday, August 1, 2025
+
+                            The MIANALYZE Procedure
+
+                               Model Information
+
+                    PARMS Data Set            WORK.OUTPARMS
+                    Number of Imputations     5            
+
+
+                      Variance Information (5 Imputations)
+ 
+                       -----------------Variance-----------------
+      Parameter             Between         Within          Total       DF
+
+      intercept            0.137335       1.639685       1.804488   479.56
+      x17                  0.000936       0.101318       0.102441    33289
+      x12                  0.000655       0.090030       0.090817    53359
+      x18                  0.001152       0.144113       0.145495    44322
+      y_bmi             0.000081352       0.000214       0.000311   40.724
+      age_strat_new        0.017029       0.245974       0.266410   679.82
+      x6                0.000026751       0.000459       0.000491   936.37
+
+                     Variance Information (5 Imputations)
+ 
+                               Relative       Fraction
+                               Increase        Missing       Relative
+          Parameter         in Variance    Information     Efficiency
+
+          intercept            0.100508       0.095095       0.981336
+          x17                  0.011083       0.011021       0.997801
+          x12                  0.008734       0.008695       0.998264
+          x18                  0.009591       0.009545       0.998095
+          y_bmi                0.456461       0.344810       0.935487
+          age_strat_new        0.083079       0.079411       0.984366
+          x6                   0.069930       0.067349       0.986709
+
+
+ 
+                      Parameter Estimates (5 Imputations)
+ 
+Parameter            Estimate      Std Error    95% Confidence Limits        DF
+
+intercept          107.311334       1.343312     104.6718     109.9508   479.56
+
+ 
+                      Parameter Estimates (5 Imputations)
+ 
+                  Parameter             Minimum        Maximum
+
+                  intercept          106.788841     107.765909
+
+                      Parameter Estimates (5 Imputations)
+ 
+                                                 t for H0:
+          Parameter              Theta0   Parameter=Theta0   Pr > |t|
+
+          intercept                   0              79.89     <.0001
+                                 The SAS System                               57
+                                                    10:39 Friday, August 1, 2025
+
+                            The MIANALYZE Procedure
+
+ 
+                      Parameter Estimates (5 Imputations)
+ 
+Parameter            Estimate      Std Error    95% Confidence Limits        DF
+
+x17                 -1.469434       0.320064      -2.0968      -0.8421    33289
+x12                  9.141705       0.301358       8.5510       9.7324    53359
+x18                 -8.462935       0.381438      -9.2106      -7.7153    44322
+y_bmi                0.006937       0.017649      -0.0287       0.0426   40.724
+age_strat_new       -4.743096       0.516149      -5.7565      -3.7297   679.82
+x6                   5.882176       0.022162       5.8387       5.9257   936.37
+
+ 
+                      Parameter Estimates (5 Imputations)
+ 
+                  Parameter             Minimum        Maximum
+
+                  x17                 -1.500615      -1.420796
+                  x12                  9.124761       9.186170
+                  x18                 -8.493456      -8.409358
+                  y_bmi               -0.005129       0.019113
+                  age_strat_new       -4.921935      -4.582609
+                  x6                   5.875969       5.889368
+
+                      Parameter Estimates (5 Imputations)
+ 
+                                                 t for H0:
+          Parameter              Theta0   Parameter=Theta0   Pr > |t|
+
+          x17                         0              -4.59     <.0001
+          x12                         0              30.34     <.0001
+          x18                         0             -22.19     <.0001
+          y_bmi                       0               0.39     0.6963
+          age_strat_new               0              -9.19     <.0001
+          x6                          0             265.42     <.0001

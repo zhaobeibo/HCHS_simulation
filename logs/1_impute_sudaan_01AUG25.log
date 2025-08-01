@@ -1,0 +1,1044 @@
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           3.45 seconds
+      cpu time            0.06 seconds
+      
+
+26   
+27   data vars_labels;
+28       input MODELRHS Variable $20.;
+29           datalines;
+
+NOTE: The data set WORK.VARS_LABELS has 7 observations and 2 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+37       ;
+38   run;
+39   
+40   %macro impute_sudaan(start=2, end=100, corr=, corr_full=, rr=, miss=
+40 ! ,nimpute=5);
+41     %do i = &start. %to &end.;
+42               data samp;
+43                   set sample.samplemiss_&i;
+44   
+45                   /* weight adjusted for nomresponse */
+46                   bghhsub_s2_nr = bghhsub_s2/ &rr.;
+47   
+48                   where &miss. = 0;
+49               run;
+50   
+51               /* Transform from long to wide */
+52                   /* This step is the preparation step for multiple
+52 ! imputation */
+53               data samp_1(rename=(x6=x6_1 y_bmi=y_bmi_1 y_gfr=y_gfr_1
+53 ! bghhsub_s2_nr=w_nr_1))
+54                       samp_2(rename=(x6=x6_2 y_bmi=y_bmi_2 y_gfr=y_gfr_2
+54 ! bghhsub_s2_nr=w_nr_2))
+55                       samp_3(rename=(x6=x6_3 y_bmi=y_bmi_3 y_gfr=y_gfr_3
+55 ! bghhsub_s2_nr=w_nr_3));
+56                   set samp;
+57                   if v_num = 1 then output samp_1;
+58                   else if v_num = 2 then output samp_2;
+59                   else if v_num = 3 then output samp_3;
+60               run;
+61   
+62               * Sort the 3 datasets;
+63               proc sort data = samp_1; by subid; run;
+64               proc sort data = samp_2; by subid; run;
+65               proc sort data = samp_3; by subid; run;
+66   
+67                   * merging the 3 new datasets;
+68               data samp_wide;
+69                   merge samp_1-samp_3;
+70                   by subid;
+71               run;
+72   
+73                   * sort the output datasets;
+74               proc sort data = samp_wide;
+75                    by subid;
+76               run;
+77   
+78                   * obtain the # of missing values by var ;
+79               proc means data = samp_wide noprint;
+80                    var  x17 x12 x18 y_bmi_1-y_bmi_3 age_strat_new
+81                               x6_2-x6_3 y_gfr_1-y_gfr_3
+82                               x14 w_nr_1 w_nr_2 w_nr_3;
+83                   output out= mi_miss nmiss=;
+84               run;
+85   
+86                   * transpose the values from proc means;
+87               proc transpose data = mi_miss(drop=_TYPE_ _FREQ_)
+87 ! out=mi_long;
+88               run;
+89   
+90                   * sort the values by # missing;
+91               proc sort data = mi_long;
+92                       by col1;
+93               run;
+94   
+95               proc sql noprint;
+96                       select distinct _name_ into:var separated by ' '
+96 ! from mi_long;
+97               quit;
+98               %put &var.;
+99   
+100              data samp_wide;
+101                  set samp_wide;
+102                  strat_psu = cats(strat_recoded,bgid);
+103              run;
+104  
+105              proc mi data=samp_wide seed=2021 nimpute=&nimpute
+105! out=samp_complete;
+106                  class strat_psu;
+107                  fcs reg(x6_2-x6_3 y_gfr_2-y_gfr_3 y_bmi_2-y_bmi_3);
+108                  var &var. strat_psu;
+109              run;
+110  
+111                  /* Transform the imputed datasets from wide format to
+111! long */
+112              data samp_long;
+113                      set samp_complete;
+114                      v_num = 1;
+115                      x6 = x6_1;
+116                      y_bmi = y_bmi_1;
+117                      y_gfr = y_gfr_1;
+118                      bghhsub_s2_nr = w_nr_1;
+119                      output;
+120  
+121                      v_num = 2;
+122                      x6 = x6_2;
+123                      y_bmi = y_bmi_2;
+124                      y_gfr = y_gfr_2;
+125                      bghhsub_s2_nr = w_nr_2;
+126                      output;
+127  
+128                      v_num = 3;
+129                      x6 = x6_3;
+130                      y_bmi = y_bmi_3;
+131                      y_gfr = y_gfr_3;
+132                      bghhsub_s2_nr = w_nr_3;
+133                      output;
+134              run;
+135  
+136                      * Fit regress model from sudaan using corr matrix;
+137                  * Looping over the 5 simulated datasets;
+138                  %do j = 1 %to &nimpute;
+139                      data temp;
+140                          set samp_long;
+141                          if _imputation_ = &j;
+142                      run;
+143                  proc sort data = temp;
+144                      by strat_recoded bgid hhid subid;
+145                  run;
+146                      options pagesize=60 linesize=80;
+147                      proc regress data = temp filetype=sas r=&corr_full
+147! semethod=zeger;
+148                          %if &corr. = exch %then %do;
+149                              nest strat_recoded hhid / psulev=2 ;
+150                          %end;
+151                          %else %do;
+152                              nest strat_recoded hhid;
+153                          %end;
+154                          weight bghhsub_s2;
+155                          model y_gfr = x17 x12 x18 y_bmi age_strat_new x6
+155! ;
+156                          output beta sebeta p_beta t_beta /
+156! filename=betas_mi_&corr._&i._&j filetype=sas replace;
+157                      run;
+158  
+159                      data betas_mi_&corr._&i._&j;
+160                          merge vars_labels betas_mi_&corr._&i._&j ;
+161                          by modelrhs;
+162                          _imputation_ = &j;
+163                          ClassVal0 = '';
+164                          DF = 1;
+165                          rename beta = Estimate sebeta = StdErr p_beta =
+165! ProbChisq t_beta = WaldChisq;
+166                          drop procnum modelno modelrhs;
+167                      run;
+168                  %end;
+169          * merging the 10 datasets;
+170          data outparms;
+171              set betas_mi_&corr._&i._1 - betas_mi_&corr._&i._&nimpute.;
+172          run;
+173          * combine estimates;
+174          proc mianalyze parms = outparms;
+175              modeleffects intercept x17 x12 x18 y_bmi age_strat_new x6;
+176              ods output ParameterEstimates = betas_mi_&corr._&i;
+177          run;
+178          data dt_b_s1.&corr._&rr._&i;
+179                          SET betas_mi_&corr._&i(RENAME=(UCLMEAN = UPPERCL
+179!  LCLMEAN=LOWERCL ));
+180          run;
+181    %end;
+182  %mend impute_sudaan;
+183  
+184  * miss_ind_mar;
+185  %impute_sudaan(corr=ind, corr_full=independent, rr=rr_glm, miss=
+185! miss_ind_mar);
+
+NOTE: There were 34768 observations read from the data set 
+      SAMPLE.SAMPLEMISS_2.
+      WHERE miss_ind_mar=0;
+NOTE: The data set WORK.SAMP has 34768 observations and 54 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.25 seconds
+      cpu time            0.09 seconds
+      
+
+
+NOTE: There were 34768 observations read from the data set WORK.SAMP.
+NOTE: The data set WORK.SAMP_1 has 15969 observations and 54 variables.
+NOTE: The data set WORK.SAMP_2 has 10472 observations and 54 variables.
+NOTE: The data set WORK.SAMP_3 has 8327 observations and 54 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 15969 observations read from the data set WORK.SAMP_1.
+NOTE: The data set WORK.SAMP_1 has 15969 observations and 54 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 10472 observations read from the data set WORK.SAMP_2.
+NOTE: The data set WORK.SAMP_2 has 10472 observations and 54 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 8327 observations read from the data set WORK.SAMP_3.
+NOTE: The data set WORK.SAMP_3 has 8327 observations and 54 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 15969 observations read from the data set WORK.SAMP_1.
+NOTE: There were 10472 observations read from the data set WORK.SAMP_2.
+NOTE: There were 8327 observations read from the data set WORK.SAMP_3.
+NOTE: The data set WORK.SAMP_WIDE has 15969 observations and 62 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 15969 observations read from the data set WORK.SAMP_WIDE.
+NOTE: The data set WORK.SAMP_WIDE has 15969 observations and 62 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 15969 observations read from the data set WORK.SAMP_WIDE.
+NOTE: The data set WORK.MI_MISS has 1 observations and 18 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 1 observations read from the data set WORK.MI_MISS.
+NOTE: The data set WORK.MI_LONG has 16 observations and 2 variables.
+NOTE: PROCEDURE TRANSPOSE used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 16 observations read from the data set WORK.MI_LONG.
+NOTE: The data set WORK.MI_LONG has 16 observations and 2 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+age_strat_new w_nr_1 w_nr_2 w_nr_3 x12 x14 x17 x18 x6_2 x6_3 y_bmi_1 y_bmi_2 
+y_bmi_3 y_gfr_1 y_gfr_2 y_gfr_3
+
+NOTE: There were 15969 observations read from the data set WORK.SAMP_WIDE.
+NOTE: The data set WORK.SAMP_WIDE has 15969 observations and 63 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: The data set WORK.SAMP_COMPLETE has 79845 observations and 64 
+      variables.
+NOTE: PROCEDURE MI used (Total process time):
+      real time           1:07.05
+      cpu time            46.21 seconds
+      
+
+
+NOTE: There were 79845 observations read from the data set 
+      WORK.SAMP_COMPLETE.
+NOTE: The data set WORK.SAMP_LONG has 239535 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.20 seconds
+      cpu time            0.14 seconds
+      
+
+
+NOTE: There were 239535 observations read from the data set WORK.SAMP_LONG.
+NOTE: The data set WORK.TEMP has 47907 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.14 seconds
+      cpu time            0.10 seconds
+      
+
+
+NOTE: There were 47907 observations read from the data set WORK.TEMP.
+NOTE: The data set WORK.TEMP has 47907 observations and 68 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.11 seconds
+      cpu time            0.07 seconds
+      
+
+
+ 
+************************************************************
+SUDAAN Release 11.0.3, Build 331
+SAS-Callable, Individual PC, 32 bit version
+Serial Number A0004505 for 10 user(s) is licensed to
+UNC-CH (CSCC).
+This license expires on October 16, 2025.
+************************************************************
+ 
+ 
+ 
+ 
+Opened SAS data file TEMP for reading.
+ 
+Opened SAS data file BETAS_MI_IND_2_1 for writing.
+Note:
+ 7 records written to file BETAS_MI_IND_2_1
+NOTE: PROCEDURE REGRESS used (Total process time):
+      real time           0.87 seconds
+      cpu time            0.28 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.VARS_LABELS.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_2_1.
+NOTE: The data set WORK.BETAS_MI_IND_2_1 has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 239535 observations read from the data set WORK.SAMP_LONG.
+NOTE: The data set WORK.TEMP has 47907 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.14 seconds
+      cpu time            0.09 seconds
+      
+
+
+NOTE: There were 47907 observations read from the data set WORK.TEMP.
+NOTE: The data set WORK.TEMP has 47907 observations and 68 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.12 seconds
+      cpu time            0.03 seconds
+      
+
+
+ 
+************************************************************
+SUDAAN Release 11.0.3, Build 331
+SAS-Callable, Individual PC, 32 bit version
+Serial Number A0004505 for 10 user(s) is licensed to
+UNC-CH (CSCC).
+This license expires on October 16, 2025.
+************************************************************
+ 
+ 
+ 
+ 
+Opened SAS data file TEMP for reading.
+ 
+Opened SAS data file BETAS_MI_IND_2_2 for writing.
+Note:
+ 7 records written to file BETAS_MI_IND_2_2
+NOTE: PROCEDURE REGRESS used (Total process time):
+      real time           0.50 seconds
+      cpu time            0.23 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.VARS_LABELS.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_2_2.
+NOTE: The data set WORK.BETAS_MI_IND_2_2 has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 239535 observations read from the data set WORK.SAMP_LONG.
+NOTE: The data set WORK.TEMP has 47907 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.14 seconds
+      cpu time            0.12 seconds
+      
+
+
+NOTE: There were 47907 observations read from the data set WORK.TEMP.
+NOTE: The data set WORK.TEMP has 47907 observations and 68 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.12 seconds
+      cpu time            0.06 seconds
+      
+
+
+ 
+************************************************************
+SUDAAN Release 11.0.3, Build 331
+SAS-Callable, Individual PC, 32 bit version
+Serial Number A0004505 for 10 user(s) is licensed to
+UNC-CH (CSCC).
+This license expires on October 16, 2025.
+************************************************************
+ 
+ 
+ 
+ 
+Opened SAS data file TEMP for reading.
+ 
+Opened SAS data file BETAS_MI_IND_2_3 for writing.
+Note:
+ 7 records written to file BETAS_MI_IND_2_3
+NOTE: PROCEDURE REGRESS used (Total process time):
+      real time           0.50 seconds
+      cpu time            0.31 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.VARS_LABELS.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_2_3.
+NOTE: The data set WORK.BETAS_MI_IND_2_3 has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 239535 observations read from the data set WORK.SAMP_LONG.
+NOTE: The data set WORK.TEMP has 47907 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.12 seconds
+      cpu time            0.07 seconds
+      
+
+
+NOTE: There were 47907 observations read from the data set WORK.TEMP.
+NOTE: The data set WORK.TEMP has 47907 observations and 68 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.12 seconds
+      cpu time            0.09 seconds
+      
+
+
+ 
+************************************************************
+SUDAAN Release 11.0.3, Build 331
+SAS-Callable, Individual PC, 32 bit version
+Serial Number A0004505 for 10 user(s) is licensed to
+UNC-CH (CSCC).
+This license expires on October 16, 2025.
+************************************************************
+ 
+ 
+ 
+ 
+Opened SAS data file TEMP for reading.
+ 
+Opened SAS data file BETAS_MI_IND_2_4 for writing.
+Note:
+ 7 records written to file BETAS_MI_IND_2_4
+NOTE: PROCEDURE REGRESS used (Total process time):
+      real time           0.53 seconds
+      cpu time            0.29 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.VARS_LABELS.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_2_4.
+NOTE: The data set WORK.BETAS_MI_IND_2_4 has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 239535 observations read from the data set WORK.SAMP_LONG.
+NOTE: The data set WORK.TEMP has 47907 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.12 seconds
+      cpu time            0.09 seconds
+      
+
+
+NOTE: There were 47907 observations read from the data set WORK.TEMP.
+NOTE: The data set WORK.TEMP has 47907 observations and 68 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.14 seconds
+      cpu time            0.03 seconds
+      
+
+
+ 
+************************************************************
+SUDAAN Release 11.0.3, Build 331
+SAS-Callable, Individual PC, 32 bit version
+Serial Number A0004505 for 10 user(s) is licensed to
+UNC-CH (CSCC).
+This license expires on October 16, 2025.
+************************************************************
+ 
+ 
+ 
+ 
+Opened SAS data file TEMP for reading.
+ 
+Opened SAS data file BETAS_MI_IND_2_5 for writing.
+Note:
+ 7 records written to file BETAS_MI_IND_2_5
+NOTE: PROCEDURE REGRESS used (Total process time):
+      real time           0.50 seconds
+      cpu time            0.21 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.VARS_LABELS.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_2_5.
+NOTE: The data set WORK.BETAS_MI_IND_2_5 has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_2_1.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_2_2.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_2_3.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_2_4.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_2_5.
+NOTE: The data set WORK.OUTPARMS has 35 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: The data set WORK.BETAS_MI_IND_2 has 7 observations and 12 variables.
+NOTE: PROCEDURE MIANALYZE used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_2.
+NOTE: The data set DT_B_S1.IND_RR_GLM_2 has 7 observations and 12 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.54 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 33693 observations read from the data set SAMPLE.SAMPLEMISS_3.
+      WHERE miss_ind_mar=0;
+NOTE: The data set WORK.SAMP has 33693 observations and 54 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.26 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 33693 observations read from the data set WORK.SAMP.
+NOTE: The data set WORK.SAMP_1 has 15418 observations and 54 variables.
+NOTE: The data set WORK.SAMP_2 has 10151 observations and 54 variables.
+NOTE: The data set WORK.SAMP_3 has 8124 observations and 54 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.04 seconds
+      
+
+
+NOTE: There were 15418 observations read from the data set WORK.SAMP_1.
+NOTE: The data set WORK.SAMP_1 has 15418 observations and 54 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 10151 observations read from the data set WORK.SAMP_2.
+NOTE: The data set WORK.SAMP_2 has 10151 observations and 54 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 8124 observations read from the data set WORK.SAMP_3.
+NOTE: The data set WORK.SAMP_3 has 8124 observations and 54 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 15418 observations read from the data set WORK.SAMP_1.
+NOTE: There were 10151 observations read from the data set WORK.SAMP_2.
+NOTE: There were 8124 observations read from the data set WORK.SAMP_3.
+NOTE: The data set WORK.SAMP_WIDE has 15418 observations and 62 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 15418 observations read from the data set WORK.SAMP_WIDE.
+NOTE: The data set WORK.SAMP_WIDE has 15418 observations and 62 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 15418 observations read from the data set WORK.SAMP_WIDE.
+NOTE: The data set WORK.MI_MISS has 1 observations and 18 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 1 observations read from the data set WORK.MI_MISS.
+NOTE: The data set WORK.MI_LONG has 16 observations and 2 variables.
+NOTE: PROCEDURE TRANSPOSE used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 16 observations read from the data set WORK.MI_LONG.
+NOTE: The data set WORK.MI_LONG has 16 observations and 2 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+age_strat_new w_nr_1 w_nr_2 w_nr_3 x12 x14 x17 x18 x6_2 x6_3 y_bmi_1 y_bmi_2 
+y_bmi_3 y_gfr_1 y_gfr_2 y_gfr_3
+
+NOTE: There were 15418 observations read from the data set WORK.SAMP_WIDE.
+NOTE: The data set WORK.SAMP_WIDE has 15418 observations and 63 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: The data set WORK.SAMP_COMPLETE has 77090 observations and 64 variables.
+NOTE: PROCEDURE MI used (Total process time):
+      real time           1:06.41
+      cpu time            45.71 seconds
+      
+
+
+NOTE: There were 77090 observations read from the data set WORK.SAMP_COMPLETE.
+NOTE: The data set WORK.SAMP_LONG has 231270 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.20 seconds
+      cpu time            0.17 seconds
+      
+
+
+NOTE: There were 231270 observations read from the data set WORK.SAMP_LONG.
+NOTE: The data set WORK.TEMP has 46254 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.12 seconds
+      cpu time            0.12 seconds
+      
+
+
+NOTE: There were 46254 observations read from the data set WORK.TEMP.
+NOTE: The data set WORK.TEMP has 46254 observations and 68 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.09 seconds
+      cpu time            0.07 seconds
+      
+
+
+ 
+************************************************************
+SUDAAN Release 11.0.3, Build 331
+SAS-Callable, Individual PC, 32 bit version
+Serial Number A0004505 for 10 user(s) is licensed to
+UNC-CH (CSCC).
+This license expires on October 16, 2025.
+************************************************************
+ 
+ 
+ 
+ 
+Opened SAS data file TEMP for reading.
+ 
+Opened SAS data file BETAS_MI_IND_3_1 for writing.
+Note:
+ 7 records written to file BETAS_MI_IND_3_1
+NOTE: PROCEDURE REGRESS used (Total process time):
+      real time           0.51 seconds
+      cpu time            0.35 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.VARS_LABELS.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_3_1.
+NOTE: The data set WORK.BETAS_MI_IND_3_1 has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 231270 observations read from the data set WORK.SAMP_LONG.
+NOTE: The data set WORK.TEMP has 46254 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.12 seconds
+      cpu time            0.04 seconds
+      
+
+
+NOTE: There were 46254 observations read from the data set WORK.TEMP.
+NOTE: The data set WORK.TEMP has 46254 observations and 68 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.11 seconds
+      cpu time            0.12 seconds
+      
+
+
+ 
+************************************************************
+SUDAAN Release 11.0.3, Build 331
+SAS-Callable, Individual PC, 32 bit version
+Serial Number A0004505 for 10 user(s) is licensed to
+UNC-CH (CSCC).
+This license expires on October 16, 2025.
+************************************************************
+ 
+ 
+ 
+ 
+Opened SAS data file TEMP for reading.
+ 
+Opened SAS data file BETAS_MI_IND_3_2 for writing.
+Note:
+ 7 records written to file BETAS_MI_IND_3_2
+NOTE: PROCEDURE REGRESS used (Total process time):
+      real time           0.48 seconds
+      cpu time            0.40 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.VARS_LABELS.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_3_2.
+NOTE: The data set WORK.BETAS_MI_IND_3_2 has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 231270 observations read from the data set WORK.SAMP_LONG.
+NOTE: The data set WORK.TEMP has 46254 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.14 seconds
+      cpu time            0.04 seconds
+      
+
+
+NOTE: There were 46254 observations read from the data set WORK.TEMP.
+NOTE: The data set WORK.TEMP has 46254 observations and 68 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.11 seconds
+      cpu time            0.09 seconds
+      
+
+
+ 
+************************************************************
+SUDAAN Release 11.0.3, Build 331
+SAS-Callable, Individual PC, 32 bit version
+Serial Number A0004505 for 10 user(s) is licensed to
+UNC-CH (CSCC).
+This license expires on October 16, 2025.
+************************************************************
+ 
+ 
+ 
+ 
+Opened SAS data file TEMP for reading.
+ 
+Opened SAS data file BETAS_MI_IND_3_3 for writing.
+Note:
+ 7 records written to file BETAS_MI_IND_3_3
+NOTE: PROCEDURE REGRESS used (Total process time):
+      real time           0.49 seconds
+      cpu time            0.26 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.VARS_LABELS.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_3_3.
+NOTE: The data set WORK.BETAS_MI_IND_3_3 has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 231270 observations read from the data set WORK.SAMP_LONG.
+NOTE: The data set WORK.TEMP has 46254 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.11 seconds
+      cpu time            0.09 seconds
+      
+
+
+NOTE: There were 46254 observations read from the data set WORK.TEMP.
+NOTE: The data set WORK.TEMP has 46254 observations and 68 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.11 seconds
+      cpu time            0.03 seconds
+      
+
+
+ 
+************************************************************
+SUDAAN Release 11.0.3, Build 331
+SAS-Callable, Individual PC, 32 bit version
+Serial Number A0004505 for 10 user(s) is licensed to
+UNC-CH (CSCC).
+This license expires on October 16, 2025.
+************************************************************
+ 
+ 
+ 
+ 
+Opened SAS data file TEMP for reading.
+ 
+Opened SAS data file BETAS_MI_IND_3_4 for writing.
+Note:
+ 7 records written to file BETAS_MI_IND_3_4
+NOTE: PROCEDURE REGRESS used (Total process time):
+      real time           0.46 seconds
+      cpu time            0.28 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.VARS_LABELS.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_3_4.
+NOTE: The data set WORK.BETAS_MI_IND_3_4 has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 231270 observations read from the data set WORK.SAMP_LONG.
+NOTE: The data set WORK.TEMP has 46254 observations and 68 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.10 seconds
+      cpu time            0.14 seconds
+      
+
+
+NOTE: There were 46254 observations read from the data set WORK.TEMP.
+NOTE: The data set WORK.TEMP has 46254 observations and 68 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.15 seconds
+      cpu time            0.14 seconds
+      
+
+
+ 
+************************************************************
+SUDAAN Release 11.0.3, Build 331
+SAS-Callable, Individual PC, 32 bit version
+Serial Number A0004505 for 10 user(s) is licensed to
+UNC-CH (CSCC).
+This license expires on October 16, 2025.
+************************************************************
+ 
+ 
+ 
+ 
+Opened SAS data file TEMP for reading.
+ 
+Opened SAS data file BETAS_MI_IND_3_5 for writing.
+Note:
+ 7 records written to file BETAS_MI_IND_3_5
+NOTE: PROCEDURE REGRESS used (Total process time):
+      real time           0.50 seconds
+      cpu time            0.31 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.VARS_LABELS.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_3_5.
+NOTE: The data set WORK.BETAS_MI_IND_3_5 has 7 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_3_1.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_3_2.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_3_3.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_3_4.
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_3_5.
+NOTE: The data set WORK.OUTPARMS has 35 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: The data set WORK.BETAS_MI_IND_3 has 7 observations and 12 variables.
+NOTE: PROCEDURE MIANALYZE used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.BETAS_MI_IND_3.
+NOTE: The data set DT_B_S1.IND_RR_GLM_3 has 7 observations and 12 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 33375 observations read from the data set SAMPLE.SAMPLEMISS_4.
+      WHERE miss_ind_mar=0;
+NOTE: The data set WORK.SAMP has 33375 observations and 54 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.21 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 33375 observations read from the data set WORK.SAMP.
+NOTE: The data set WORK.SAMP_1 has 15233 observations and 54 variables.
+NOTE: The data set WORK.SAMP_2 has 10114 observations and 54 variables.
+NOTE: The data set WORK.SAMP_3 has 8028 observations and 54 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 15233 observations read from the data set WORK.SAMP_1.
+NOTE: The data set WORK.SAMP_1 has 15233 observations and 54 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 10114 observations read from the data set WORK.SAMP_2.
+NOTE: The data set WORK.SAMP_2 has 10114 observations and 54 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 8028 observations read from the data set WORK.SAMP_3.
+NOTE: The data set WORK.SAMP_3 has 8028 observations and 54 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 15233 observations read from the data set WORK.SAMP_1.
+NOTE: There were 10114 observations read from the data set WORK.SAMP_2.
+NOTE: There were 8028 observations read from the data set WORK.SAMP_3.
+NOTE: The data set WORK.SAMP_WIDE has 15233 observations and 62 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.04 seconds
+      
+
+
+NOTE: There were 15233 observations read from the data set WORK.SAMP_WIDE.
+NOTE: The data set WORK.SAMP_WIDE has 15233 observations and 62 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 15233 observations read from the data set WORK.SAMP_WIDE.
+NOTE: The data set WORK.MI_MISS has 1 observations and 18 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.07 seconds
+      
+
+
+NOTE: There were 1 observations read from the data set WORK.MI_MISS.
+NOTE: The data set WORK.MI_LONG has 16 observations and 2 variables.
+NOTE: PROCEDURE TRANSPOSE used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 16 observations read from the data set WORK.MI_LONG.
+NOTE: The data set WORK.MI_LONG has 16 observations and 2 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+age_strat_new w_nr_1 w_nr_2 w_nr_3 x12 x14 x17 x18 x6_2 x6_3 y_bmi_1 y_bmi_2 
+y_bmi_3 y_gfr_1 y_gfr_2 y_gfr_3
+
+NOTE: There were 15233 observations read from the data set WORK.SAMP_WIDE.
+NOTE: The data set WORK.SAMP_WIDE has 15233 observations and 63 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
