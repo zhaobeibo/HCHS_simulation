@@ -13,6 +13,10 @@ file_path <- paste0(main_path, "output//alex//GENMOD - GEE Results.xlsx")
 method_codes <- read_excel(file_path, sheet = "Method Codes")
 batch_output <- read_excel(file_path, sheet = "Batch Output")
 
+# set threshold for problematic coverage
+lower_threshold <- 0.925
+upper_threshold <- 0.975
+
 # Enhanced function to parse method specifications - FINAL FIX
 create_method_mapping <- function(method_codes) {
   
@@ -184,7 +188,7 @@ create_excel_blocks <- function(batch_output, method_mapping) {
                 Coverage = round(Coverage, 3),
                 `P(reject H0)` = round(`P(reject H0)`, 3),
                 # Add coverage issue indicator for debugging
-                Coverage_Issue = ifelse(Coverage < 0.92 | Coverage > 0.97, "YES", "NO")
+                Coverage_Issue = ifelse(Coverage < lower_threshold | Coverage > upper_threshold, "YES", "NO")
               )
             
             blocks_list[[block_name]] <- formatted_block
@@ -232,7 +236,7 @@ create_summary_table <- function(batch_output, method_mapping) {
     mutate(
       # Fix coverage issue calculation
       Coverage_numeric = as.numeric(Coverage),
-      coverage_issue = ifelse(Coverage_numeric < 0.92 | Coverage_numeric > 0.97, 1, 0)
+      coverage_issue = ifelse(Coverage_numeric < lower_threshold | Coverage_numeric > upper_threshold, 1, 0)
     )
   
   # Debug: Check that we now have different coverage values for IND vs EXCH
@@ -554,7 +558,7 @@ create_summary_table <- function(batch_output, method_mapping) {
     distinct(suffix, Parm, scenario, proc_type, correlation, missing_method, 
              weight_method, outcome_type, visit_restriction, .keep_all = TRUE) %>%
     mutate(
-      coverage_issue = ifelse(Coverage < 0.92 | Coverage > 0.97, 1, 0)
+      coverage_issue = ifelse(Coverage < lower_threshold | Coverage > upper_threshold, 1, 0)
     )
   
   # Create summary for each scenario-weight combination
