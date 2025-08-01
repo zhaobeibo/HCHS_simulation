@@ -1,0 +1,405 @@
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+382   **************************************************************************
+382 ! *******************************
+383   
+384           PROGRAM NAME: s2_combine.sas
+385   
+386           PROGRAMMER: AQA
+387   
+388           DESCRIPTION:
+389   
+390           VERSION CONTROL:
+391                           - 20FEB25: Initialize the code
+392   
+393   **************************************************************************
+393 ! *******************************;
+394   
+395   
+396   %macro combine_betas(start=1, end=100, corr=);
+397   * merge files containing beta estimates using sample data;
+398   data merge_betas;
+399       set dt_b_s2.betas_&corr._&start. - dt_b_s2.betas_&corr._&end.;
+400   run;
+401   
+402   * append the true value coming from population estimates;
+403   proc sql;
+404        create table betas_samp_pop as
+405          select a.*, b.estimate as true
+406          from
+407          merge_betas as a
+408          right join
+409          dt_betas.betas_pop_&corr. as b
+410          on a.parm=b.parm;
+411   quit;
+412   
+413   * Compute 95% confidence intervals;
+414   data betas_samp_pop;
+415       set betas_samp_pop;
+416       uppercl = Estimate + 1.965 * Stderr;
+417       lowercl = Estimate - 1.965 * Stderr;
+418   run;
+419   
+420   * Estimate quantities of interest: bias, ...;
+421   data betas_samp_pop_;
+422                   set betas_samp_pop;
+423                   /*calculate statistics to summarize*/
+424                   inci=(uppercl>=true & lowercl<=true);
+425                   bias=estimate-true;
+426                   relbias=bias/true;
+427                   /*PROBT*/
+428                   rejecth0=(abs(t)>quantile('NORMAL',.975));
+429   run;
+430   
+431   proc means data=betas_samp_pop_
+432                   noprint nway;
+433                   class parm;
+434                   var true estimate bias relbias stderr inci rejecth0;
+435                   output out=output_1 mean(true estimate bias relbias stderr
+435 !  inci
+436                           rejecth0)=true estimate empbias relbias estse
+436 ! coverage
+437                           prejecth0 std(estimate)=empse;
+438   run;
+439   
+440   
+441   data output;
+442         set output_1;
+443         relse=estse/empse-1;
+444   run;
+445   
+446   ods rtf file="&homepath./output/reports/s2_combine_&corr._&sysdate..rtf"
+446 ! style=journal bodytitle;
+447           proc print data=output noobs label;
+448           var parm true estimate empbias relbias empse estse relse coverage
+448 ! prejecth0;
+449           label parm='Effect' true='True Value' estimate='Estimate'
+450                           empbias='Empirical Bias' relbias='Relative Bias'
+451                           empse='Empirical SE' estse='Estimated SE'
+452                           coverage='Coverage' prejecth0='P(reject H0)'
+453                           relse='Relative SE difference';
+454   run;
+455   ods rtf close;
+456   %mend combine_betas;
+457   
+458   %combine_betas(corr=exch);
+
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_1.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_2.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_3.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_4.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_5.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_6.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_7.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_8.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_9.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_10.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_11.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_12.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_13.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_14.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_15.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_16.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_17.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_18.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_19.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_20.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_21.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_22.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_23.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_24.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_25.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_26.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_27.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_28.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_29.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_30.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_31.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_32.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_33.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_34.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_35.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_36.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_37.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_38.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_39.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_40.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_41.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_42.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_43.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_44.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_45.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_46.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_47.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_48.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_49.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_50.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_51.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_52.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_53.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_54.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_55.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_56.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_57.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_58.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_59.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_60.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_61.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_62.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_63.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_64.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_65.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_66.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_67.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_68.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_69.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_70.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_71.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_72.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_73.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_74.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_75.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_76.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_77.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_78.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_79.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_80.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_81.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_82.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_83.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_84.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_85.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_86.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_87.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_88.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_89.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_90.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_91.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_92.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_93.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_94.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_95.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_96.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_97.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_98.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_99.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_EXCH_100.
+NOTE: The data set WORK.MERGE_BETAS has 700 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.52 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Table WORK.BETAS_SAMP_POP created, with 700 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 700 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_ has 700 observations and 12 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set WORK.BETAS_SAMP_POP_.
+NOTE: The data set WORK.OUTPUT_1 has 7 observations and 11 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT_1.
+NOTE: The data set WORK.OUTPUT has 7 observations and 12 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Writing RTF Body file: J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\/output/reports/s2_combine_exch_31JUL25.rtf
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.50 seconds
+      cpu time            0.00 seconds
+      
+
+459   %combine_betas(corr=ind);
+
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_1.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_2.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_3.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_4.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_5.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_6.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_7.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_8.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_9.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_10.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_11.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_12.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_13.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_14.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_15.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_16.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_17.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_18.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_19.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_20.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_21.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_22.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_23.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_24.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_25.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_26.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_27.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_28.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_29.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_30.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_31.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_32.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_33.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_34.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_35.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_36.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_37.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_38.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_39.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_40.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_41.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_42.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_43.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_44.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_45.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_46.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_47.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_48.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_49.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_50.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_51.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_52.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_53.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_54.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_55.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_56.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_57.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_58.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_59.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_60.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_61.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_62.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_63.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_64.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_65.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_66.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_67.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_68.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_69.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_70.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_71.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_72.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_73.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_74.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_75.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_76.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_77.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_78.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_79.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_80.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_81.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_82.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_83.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_84.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_85.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_86.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_87.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_88.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_89.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_90.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_91.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_92.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_93.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_94.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_95.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_96.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_97.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_98.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_99.
+NOTE: There were 7 observations read from the data set DT_B_S2.BETAS_IND_100.
+NOTE: The data set WORK.MERGE_BETAS has 700 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.56 seconds
+      cpu time            0.21 seconds
+      
+
+NOTE: Table WORK.BETAS_SAMP_POP created, with 700 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 700 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_ has 700 observations and 12 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set WORK.BETAS_SAMP_POP_.
+NOTE: The data set WORK.OUTPUT_1 has 7 observations and 11 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT_1.
+NOTE: The data set WORK.OUTPUT has 7 observations and 12 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+ERROR: File is in use, J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+       Requests\HCHS_simulation\\output\reports\s2_combine_ind_31JUL25.rtf.
+ERROR: Fatal ODS error has occurred. Unable to continue processing this output 
+       destination.
+WARNING: No body file. RTF output will not be created.
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+460   
+461   proc printto; run;
+

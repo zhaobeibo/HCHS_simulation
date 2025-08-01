@@ -1,0 +1,2214 @@
+                                 The SAS System                              135
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+ 
+ 
+Number of observations read       :  33386    Weighted count:    32208
+Observations used in the analysis :  33386    Weighted count:    32208
+Denominator degrees of freedom    :  11218
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File SAMPLEMISS_1_ contains 11222 Clusters
+11222 clusters were used to fit the model
+Maximum cluster size is  14 records
+Minimum cluster size is   1 records
+ 
+Weighted mean response is 126.479455
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.782522
+                                                                                
+                                                                                
+                                                                                
+Date: 07-31-2025                     SUDAAN                          Page:  1   
+Time: 23:32:21                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  106.16         1.46       103.29       109.03        
+X17                         -1.37         0.36        -2.06        -0.67        
+X12                          6.55         0.33         5.91         7.19        
+X18                         -5.52         0.41        -6.33        -4.71        
+Y_BMI                        0.05         0.02         0.02         0.09        
+AGE_STRAT_NEW               -5.49         0.54        -6.54        -4.44        
+X6                           5.88         0.03         5.82         5.93        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 07-31-2025                     SUDAAN                          Page:  2   
+Time: 23:32:21                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   72.56     0.0000                                    
+X17                         -3.84     0.0001                                    
+X12                         20.14     0.0000                                    
+X18                        -13.39     0.0000                                    
+Y_BMI                        3.00     0.0027                                    
+AGE_STRAT_NEW              -10.24     0.0000                                    
+X6                         202.31     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 07-31-2025                     SUDAAN                          Page:  3   
+Time: 23:32:21                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Independent                                               
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    137205.48     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     13234.74     0.0000                         
+INTERCEPT                     1      5264.85     0.0000                         
+X17                           1        14.72     0.0001                         
+X12                           1       405.44     0.0000                         
+X18                           1       179.25     0.0000                         
+Y_BMI                         1         8.98     0.0027                         
+AGE_STRAT_NEW                 1       104.80     0.0000                         
+X6                            1     40927.58     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                              139
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              140
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              141
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              142
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              143
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              144
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              145
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              146
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              147
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              148
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              149
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              150
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              151
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              152
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              153
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              154
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              155
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              156
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              157
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              158
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              159
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              160
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              161
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              162
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              163
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              164
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              165
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              166
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              167
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              168
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              169
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              170
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              171
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              172
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              173
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              174
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              175
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              176
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              177
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              178
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              179
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              180
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              181
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              182
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              183
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              184
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              185
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              186
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              187
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              188
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              189
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              190
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              191
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              192
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              193
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              194
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              195
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              196
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              197
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              198
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              199
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              200
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              201
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              202
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              203
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              204
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              205
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              206
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              207
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              208
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              209
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              210
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              211
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              212
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              213
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              214
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              215
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              216
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              217
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              218
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              219
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              220
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              221
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              222
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              223
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              224
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              225
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              226
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              227
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              228
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              229
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              230
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              231
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              232
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              233
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              234
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              235
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              236
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              237
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              238
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+ 
+DESIGN SUMMARY: Variances will be computed using the Taylor Linearization
+Method, Assuming a With Replacement (WR) Design
+    Sample Weight: BGHHSUB_S2
+    Stratification Variables(s): STRAT_RECODED
+    Primary Sampling Unit: HHID
+    Cluster Identification Variables: STRAT_RECODED HHID
+ 
+ 
+ 
+Number of observations read       :  33386    Weighted count:    32208
+Observations used in the analysis :  33386    Weighted count:    32208
+Denominator degrees of freedom    :  11218
+ 
+ 
+Maximum number of estimable parameters for the model is  7
+ 
+File SAMPLEMISS_1_ contains 11222 Clusters
+11222 clusters were used to fit the model
+Maximum cluster size is  14 records
+Minimum cluster size is   1 records
+ 
+Weighted mean response is 126.479455
+ 
+ 
+Multiple R-Square for the dependent variable Y_GFR: 0.782296
+                                                                                
+                                                                                
+                                                                                
+Date: 07-31-2025                     SUDAAN                          Page:  1   
+Time: 23:33:01                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Exchangeable                                              
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+------------------------------------------------------------------------        
+Independent                                                                     
+  Variables and        Beta                      Lower 95%    Upper 95%         
+  Effects              Coeff.          SE Beta   Limit Beta   Limit Beta        
+------------------------------------------------------------------------        
+Intercept                  107.73         1.40       104.98       110.47        
+X17                         -1.63         0.35        -2.32        -0.93        
+X12                          6.02         0.35         5.33         6.71        
+X18                         -5.59         0.43        -6.44        -4.75        
+Y_BMI                        0.06         0.02         0.03         0.09        
+AGE_STRAT_NEW               -5.99         0.56        -7.10        -4.89        
+X6                           5.92         0.03         5.86         5.97        
+------------------------------------------------------------------------        
+                                                                                
+                                                                                
+                                                                                
+Date: 07-31-2025                     SUDAAN                          Page:  2   
+Time: 23:33:01                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Exchangeable                                              
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Independent Variables and Effects.                                          
+                                                                                
+--------------------------------------------                                    
+Independent                         P-value                                     
+  Variables and                     T-Test                                      
+  Effects              T-Test B=0   B=0                                         
+--------------------------------------------                                    
+Intercept                   76.94     0.0000                                    
+X17                         -4.59     0.0000                                    
+X12                         17.05     0.0000                                    
+X18                        -12.98     0.0000                                    
+Y_BMI                        3.62     0.0003                                    
+AGE_STRAT_NEW              -10.64     0.0000                                    
+X6                         223.39     0.0000                                    
+--------------------------------------------                                    
+                                                                                
+                                                                                
+                                                                                
+Date: 07-31-2025                     SUDAAN                          Page:  3   
+Time: 23:33:01                                                       Table: 1   
+                                                                                
+Variance Estimation Method: Taylor Series (WR)                                  
+SE Method: Robust (Zeger-Liang, 1986)                                           
+Working Correlations: Exchangeable                                              
+Link Function: Identity                                                         
+Response variable Y_GFR: Y_GFR                                                  
+by: Contrast.                                                                   
+                                                                                
+-------------------------------------------------------                         
+                                                                                
+Contrast               Degrees                                                  
+                       of                      P-value                          
+                       Freedom        Wald F   Wald F                           
+-------------------------------------------------------                         
+OVERALL MODEL                 7    133597.07     0.0000                         
+MODEL MINUS                                                                     
+  INTERCEPT                   6     16737.90     0.0000                         
+INTERCEPT                     1      5920.05     0.0000                         
+X17                           1        21.11     0.0000                         
+X12                           1       290.61     0.0000                         
+X18                           1       168.51     0.0000                         
+Y_BMI                         1        13.12     0.0003                         
+AGE_STRAT_NEW                 1       113.21     0.0000                         
+X6                            1     49902.55     0.0000                         
+-------------------------------------------------------                         
+                                 The SAS System                              242
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              243
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              244
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              245
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              246
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              247
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              248
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              249
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              250
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              251
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              252
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              253
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              254
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              255
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              256
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              257
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              258
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              259
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              260
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              261
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              262
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              263
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              264
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              265
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              266
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              267
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              268
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              269
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              270
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              271
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              272
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              273
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              274
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              275
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              276
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              277
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              278
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              279
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              280
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              281
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              282
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              283
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              284
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              285
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              286
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              287
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              288
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              289
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              290
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              291
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              292
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              293
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              294
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              295
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              296
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              297
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              298
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              299
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              300
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              301
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              302
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              303
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              304
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              305
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              306
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              307
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              308
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              309
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              310
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              311
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              312
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              313
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              314
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              315
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              316
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              317
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              318
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              319
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              320
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              321
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              322
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              323
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              324
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              325
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              326
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              327
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              328
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              329
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              330
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              331
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              332
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              333
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              334
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              335
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              336
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              337
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              338
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              339
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
+                                 The SAS System                              340
+                                                   22:48 Thursday, July 31, 2025
+
+ 
+ 
+                                  S U D A A N
+            Software for the Statistical Analysis of Correlated Data
+          Copyright       Research Triangle Institute       March 2018
+                                 Release 11.0.3
+ 
