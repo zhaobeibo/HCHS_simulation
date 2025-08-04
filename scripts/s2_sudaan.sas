@@ -17,7 +17,7 @@ proc printto log = "&homepath./logs/s2_sudaan_&sysdate..log"
 *********************************************************************************************************;
 
 * Run sudaan models for the 100 files;
-%macro regress_sudaan(start=1, end=1000, corr=, corr_full=);
+%macro regress_sudaan(start=1, end=500, corr=, corr_full=);
   %do i = &start %to &end;
 	
 	* use only available data; 	
@@ -49,7 +49,7 @@ proc printto log = "&homepath./logs/s2_sudaan_&sysdate..log"
 	run;
 	
 	* Append parameter names to sudaan output; 
-	data dt_b_s2.&corr._&i;
+	data s2.&corr._&i;
 		merge betas_&corr._&i._(rename=(BETA=Estimate SEBETA=Stderr P_BETA=ProbZ t_beta=t)) parms;  
 		by modelrhs;
 		length parm $ 20;

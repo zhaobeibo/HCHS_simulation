@@ -16,7 +16,7 @@ data vars_labels;
     ;
 run;
 
-%macro impute_sudaan(start=2, end=100, corr=, corr_full=, rr=, miss= ,nimpute=5);
+%macro impute_sudaan(start=, end=, corr=, corr_full=, rr=, miss= ,nimpute=5);
   %do i = &start. %to &end.;
 			data samp;
                 set sample.samplemiss_&i;
@@ -154,14 +154,14 @@ run;
 			modeleffects intercept x17 x12 x18 y_bmi age_strat_new x6; 
 			ods output ParameterEstimates = betas_mi_&corr._&i;
 		run;			
-		data dt_b_s1.&corr._&rr._&i;
+		data s1.&corr._&rr._&i;
                         SET betas_mi_&corr._&i(RENAME=(UCLMEAN = UPPERCL LCLMEAN=LOWERCL ));
         run;
   %end;
 %mend impute_sudaan;
 
 * miss_ind_mar;
-%impute_sudaan(corr=ind, corr_full=independent, rr=rr_glm, miss= miss_ind_mar);
+%impute_sudaan(start=383, end=383, corr=ind, corr_full=independent, rr=rr_glm, miss= miss_ind_mar);
 %impute_sudaan(corr=ind, corr_full=independent, rr=RR_NRadj, miss= miss_ind_mar);
 
 %impute_sudaan(corr=exch, corr_full=exchangeable, rr=rr_glm, miss= miss_ind_mar);

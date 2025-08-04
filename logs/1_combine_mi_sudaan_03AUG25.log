@@ -1,0 +1,2307 @@
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+392  
+393  ***************************************************************************
+393! ******************************
+394  
+395          PROGRAM NAME: combine_mi_sudaan.sas
+396          PROGRAMMER: Beibo Zhao (updated from AQA)
+397          DESCRIPTION: Combine MI results and calculate performance metrics
+397! for HCHS V3 simulation
+398          VERSION CONTROL:
+399                          - 24APR25: Initialize the code (AQA)
+400                          - Aug2025: Updated for consistency with R
+400! simulation framework (BZ)
+401  ***************************************************************************
+401! ******************************;
+402  
+403  %macro combine_mi_betas(start=1, end=100, corr=, rr=, miss_type=);
+404  
+405      /* Determine correlation structure name for file paths */
+406      %let corr_name = %sysfunc(lowcase(&corr.));
+407  
+408      /* Determine response rate method abbreviation */
+409      %let rr_abbrev = &rr.;
+410      %if &rr. = rr_glm %then %let rr_abbrev = glm;
+411      %else %if &rr. = RR_NRadj %then %let rr_abbrev = NRadj;
+412      %else %if &rr. = rr_glm_strat %then %let rr_abbrev = glm_strat;
+413      %else %if &rr. = RR_glm_agestrat_strat %then %let rr_abbrev =
+413! glm_agestrat_strat;
+414      %else %if &rr. = RR_NRadj_strat %then %let rr_abbrev = NRadj_strat;
+415  
+416      /* Create suffix for output identification */
+417      %let suffix = &corr_name._&rr_abbrev._&miss_type.;
+418  
+419      /* Merge files containing beta estimates using sample data */
+420      data merge_betas;
+421          set dt_b_s1.&corr_name._&rr._&start. -
+421! dt_b_s1.&corr_name._&rr._&end.;
+422          /* Standardize parameter names to match population estimates */
+423          if parm = 'intercept' then parm = 'Intercept';
+424          /* Add identifier for tracking */
+425          suffix = "&suffix.";
+426          corr_structure = "&corr.";
+427          rr_method = "&rr.";
+428          miss_mechanism = "&miss_type.";
+429      run;
+430  
+431      /* Append the true values from population estimates */
+432      proc sql;
+433          create table betas_samp_pop as
+434          select a.*, b.estimate as true_value
+435          from merge_betas as a
+436          right join
+437          dt_betas.betas_pop_&corr_name. as b
+438          on upcase(a.parm) = upcase(b.parm);
+439      quit;
+440  
+441      /* Compute 95% confidence intervals */
+442      data betas_samp_pop;
+443          set betas_samp_pop;
+444          /* Calculate confidence intervals */
+445          uppercl = Estimate + 1.96 * Stderr;
+446          lowercl = Estimate - 1.96 * Stderr;
+447  
+448          /* Ensure we have valid true values */
+449          if missing(true_value) then delete;
+450      run;
+451  
+452      /* Calculate performance metrics */
+453      data betas_samp_pop_metrics;
+454          set betas_samp_pop;
+455  
+456          /* Coverage indicator (1 if true value is within CI) */
+457          coverage_ind = (uppercl >= true_value & lowercl <= true_value);
+458  
+459          /* Bias calculations */
+460          bias = estimate - true_value;
+461          rel_bias = bias / true_value;
+462  
+463          /* Hypothesis test (reject H0: parameter = 0) */
+464          reject_h0 = (abs(estimate/stderr) > 1.96);
+465  
+466          /* Additional metrics for debugging */
+467          abs_bias = abs(bias);
+468          squared_error = bias**2;
+469      run;
+470  
+471      /* Calculate summary statistics across all simulations */
+472      proc means data=betas_samp_pop_metrics noprint nway;
+473          class parm;
+474          var true_value estimate bias rel_bias stderr coverage_ind reject_h0
+474!  abs_bias squared_error;
+475          output out=summary_stats
+476                 mean(true_value estimate bias rel_bias stderr coverage_ind
+476! reject_h0)=
+477                      true_value estimate empirical_bias relative_bias
+477! estimated_se coverage p_reject_h0
+478                 std(estimate)=empirical_se
+479                 mean(abs_bias)=mean_abs_bias
+480                 mean(squared_error)=mse
+481                 n=n_sims;
+482      run;
+483  
+484      /* Calculate additional derived metrics */
+485      data final_output;
+486          set summary_stats;
+487  
+488          /* Relative SE difference */
+489          rel_se_diff = estimated_se/empirical_se - 1;
+490  
+491          /* RMSE */
+492          rmse = sqrt(mse);
+493  
+494          /* Add identifiers */
+495          suffix = "&suffix.";
+496          corr_structure = "&corr.";
+497          rr_method = "&rr.";
+498          miss_mechanism = "&miss_type.";
+499  
+500          /* Rename to match expected output format */
+501          rename parm = Parameter
+502                 true_value = True_Value
+503                 estimate = Estimate
+504                 empirical_bias = Empirical_Bias
+505                 relative_bias = Relative_Bias
+506                 empirical_se = Empirical_SE
+507                 estimated_se = Estimated_SE
+508                 rel_se_diff = Relative_SE_difference
+509                 coverage = Coverage
+510                 p_reject_h0 = P_reject_H0;
+511  
+512          /* Clean up intermediate variables */
+513          drop _TYPE_ _FREQ_ abs_bias squared_error mse;
+514      run;
+515  
+516      /* Save results to permanent dataset */
+517      data results.mi_performance_&suffix.;
+518          set final_output;
+519      run;
+520  
+521      /* Generate formatted report */
+522      ods rtf
+522! file="&homepath./output/reports/mi_performance_&suffix._&sysdate..rtf"
+523              style=journal bodytitle;
+524  
+525          title1 "Multiple Imputation Performance Results";
+526          title2 "Correlation: &corr. | Response Rate Method: &rr. | Missing
+526! Mechanism: &miss_type.";
+527          title3 "Simulations &start. through &end.";
+528  
+529          proc print data=final_output noobs label;
+530              var Parameter True_Value Estimate Empirical_Bias Relative_Bias
+531                  Empirical_SE Estimated_SE Relative_SE_difference Coverage
+531! P_reject_H0 n_sims;
+532  
+533              label Parameter='Parameter'
+534                    True_Value='True Value'
+535                    Estimate='Mean Estimate'
+536                    Empirical_Bias='Empirical Bias'
+537                    Relative_Bias='Relative Bias (%)'
+538                    Empirical_SE='Empirical SE'
+539                    Estimated_SE='Mean Estimated SE'
+540                    Relative_SE_difference='Relative SE Difference (%)'
+541                    Coverage='Coverage Probability'
+542                    P_reject_H0='Power (P(reject H0))'
+543                    n_sims='N Simulations';
+544  
+545              format Relative_Bias Relative_SE_difference percent8.1
+546                     Coverage P_reject_H0 8.3
+547                     Empirical_Bias Estimate 8.4
+548                     True_Value Empirical_SE Estimated_SE 8.3;
+549          run;
+550  
+551          /* Additional summary for coverage issues */
+552          title4 "Coverage Issues Summary";
+553          proc print data=final_output noobs;
+554              where Coverage < 0.92 or Coverage > 0.97;
+555              var Parameter Coverage True_Value Empirical_SE Estimated_SE;
+556              format Coverage 8.3;
+557          run;
+558  
+559      ods rtf close;
+560  
+561  %mend combine_mi_betas;
+562  
+563  /* Execute analysis for all combinations consistent with R simulation */
+564  
+565  /* Independent correlation structure */
+566  %combine_mi_betas(corr=independent, rr=rr_glm, miss_type=mar);
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_1.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_2.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_3.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_4.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_5.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_6.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_7.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_8.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_9.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_10.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_11.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_12.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_13.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_14.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_15.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_16.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_17.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_18.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_19.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_20.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_21.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_22.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_23.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_24.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_25.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_26.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_27.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_28.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_29.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_30.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_31.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_32.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_33.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_34.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_35.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_36.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_37.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_38.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_39.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_40.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_41.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_42.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_43.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_44.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_45.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_46.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_47.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_48.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_49.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_50.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_51.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_52.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_53.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_54.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_55.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_56.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_57.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_58.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_59.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_60.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_61.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_62.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_63.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_64.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_65.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_66.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_67.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_68.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_69.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_70.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_71.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_72.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_73.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_74.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_75.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_76.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_77.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_78.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_79.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_80.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_81.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_82.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_83.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_84.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_85.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_86.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_87.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_88.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_89.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_90.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_91.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_92.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_93.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_94.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_95.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_96.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_97.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_98.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_99.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_100.DATA does not exist.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.MERGE_BETAS may be incomplete.  When this step was 
+         stopped there were 0 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.18 seconds
+      cpu time            0.01 seconds
+      
+
+
+ERROR: File DT_BETAS.BETAS_POP_INDEPENDENT.DATA does not exist.
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: File WORK.BETAS_SAMP_POP.DATA does not exist.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.BETAS_SAMP_POP may be incomplete.  When this step 
+         was stopped there were 0 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_METRICS has 0 observations and 11 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+ERROR: Variable PARM not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.SUMMARY_STATS may be incomplete.  When this step was 
+         stopped there were 0 observations and 0 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: Variable empirical_se is uninitialized.
+NOTE: Variable estimated_se is uninitialized.
+NOTE: Variable mse is uninitialized.
+WARNING: The variable _TYPE_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable _FREQ_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable abs_bias in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable squared_error in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable parm in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable true_value in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable estimate in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable empirical_bias in the DROP, KEEP, or RENAME list has 
+         never been referenced.
+WARNING: The variable relative_bias in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable coverage in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable p_reject_h0 in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+NOTE: There were 0 observations read from the data set WORK.SUMMARY_STATS.
+NOTE: The data set WORK.FINAL_OUTPUT has 0 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Line generated by the macro variable "SUFFIX".
+1     results.mi_performance_independent_glm_mar
+      ------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Writing RTF Body file: J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\/output/reports/mi_performance_independent_glm_ma
+      r_03AUG25.rtf
+ERROR: Variable PARAMETER not found.
+ERROR: Variable TRUE_VALUE not found.
+ERROR: Variable ESTIMATE not found.
+ERROR: Variable EMPIRICAL_BIAS not found.
+ERROR: Variable RELATIVE_BIAS not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable P_REJECT_H0 not found.
+ERROR: Variable N_SIMS not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: Variable Coverage is not on file WORK.FINAL_OUTPUT.
+ERROR: Variable PARAMETER not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable TRUE_VALUE not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+567  %combine_mi_betas(corr=independent, rr=RR_NRadj, miss_type=mar);
+
+
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_1.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_2.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_3.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_4.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_5.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_6.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_7.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_8.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_9.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_10.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_11.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_12.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_13.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_14.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_15.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_16.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_17.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_18.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_19.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_20.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_21.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_22.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_23.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_24.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_25.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_26.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_27.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_28.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_29.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_30.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_31.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_32.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_33.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_34.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_35.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_36.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_37.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_38.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_39.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_40.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_41.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_42.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_43.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_44.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_45.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_46.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_47.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_48.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_49.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_50.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_51.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_52.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_53.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_54.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_55.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_56.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_57.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_58.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_59.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_60.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_61.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_62.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_63.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_64.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_65.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_66.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_67.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_68.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_69.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_70.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_71.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_72.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_73.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_74.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_75.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_76.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_77.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_78.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_79.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_80.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_81.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_82.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_83.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_84.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_85.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_86.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_87.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_88.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_89.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_90.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_91.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_92.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_93.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_94.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_95.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_96.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_97.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_98.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_99.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_100.DATA does not exist.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.MERGE_BETAS may be incomplete.  When this step was 
+         stopped there were 0 observations and 5 variables.
+WARNING: Data set WORK.MERGE_BETAS was not replaced because this step was 
+         stopped.
+NOTE: DATA statement used (Total process time):
+      real time           0.20 seconds
+      cpu time            0.01 seconds
+      
+
+
+ERROR: File DT_BETAS.BETAS_POP_INDEPENDENT.DATA does not exist.
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 0 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_METRICS has 0 observations and 11 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+ERROR: Variable PARM not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.SUMMARY_STATS may be incomplete.  When this step was 
+         stopped there were 0 observations and 0 variables.
+WARNING: Data set WORK.SUMMARY_STATS was not replaced because this step was 
+         stopped.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: Variable empirical_se is uninitialized.
+NOTE: Variable estimated_se is uninitialized.
+NOTE: Variable mse is uninitialized.
+WARNING: The variable _TYPE_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable _FREQ_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable abs_bias in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable squared_error in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable parm in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable true_value in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable estimate in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable empirical_bias in the DROP, KEEP, or RENAME list has 
+         never been referenced.
+WARNING: The variable relative_bias in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable coverage in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable p_reject_h0 in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+NOTE: There were 0 observations read from the data set WORK.SUMMARY_STATS.
+NOTE: The data set WORK.FINAL_OUTPUT has 0 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Line generated by the macro variable "SUFFIX".
+1     results.mi_performance_independent_NRadj_mar
+      --------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Writing RTF Body file: J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\/output/reports/mi_performance_independent_NRadj_
+      mar_03AUG25.rtf
+ERROR: Variable PARAMETER not found.
+ERROR: Variable TRUE_VALUE not found.
+ERROR: Variable ESTIMATE not found.
+ERROR: Variable EMPIRICAL_BIAS not found.
+ERROR: Variable RELATIVE_BIAS not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable P_REJECT_H0 not found.
+ERROR: Variable N_SIMS not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: Variable Coverage is not on file WORK.FINAL_OUTPUT.
+ERROR: Variable PARAMETER not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable TRUE_VALUE not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+568  
+569  /* Exchangeable correlation structure */
+570  %combine_mi_betas(corr=exchangeable, rr=rr_glm, miss_type=mar);
+
+
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_1.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_2.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_3.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_4.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_5.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_6.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_7.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_8.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_9.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_10.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_11.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_12.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_13.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_14.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_15.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_16.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_17.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_18.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_19.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_20.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_21.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_22.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_23.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_24.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_25.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_26.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_27.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_28.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_29.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_30.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_31.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_32.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_33.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_34.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_35.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_36.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_37.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_38.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_39.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_40.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_41.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_42.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_43.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_44.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_45.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_46.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_47.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_48.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_49.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_50.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_51.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_52.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_53.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_54.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_55.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_56.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_57.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_58.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_59.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_60.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_61.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_62.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_63.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_64.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_65.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_66.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_67.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_68.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_69.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_70.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_71.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_72.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_73.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_74.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_75.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_76.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_77.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_78.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_79.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_80.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_81.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_82.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_83.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_84.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_85.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_86.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_87.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_88.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_89.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_90.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_91.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_92.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_93.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_94.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_95.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_96.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_97.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_98.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_99.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_100.DATA does not exist.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.MERGE_BETAS may be incomplete.  When this step was 
+         stopped there were 0 observations and 5 variables.
+WARNING: Data set WORK.MERGE_BETAS was not replaced because this step was 
+         stopped.
+NOTE: DATA statement used (Total process time):
+      real time           0.17 seconds
+      cpu time            0.01 seconds
+      
+
+
+ERROR: File DT_BETAS.BETAS_POP_EXCHANGEABLE.DATA does not exist.
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 0 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_METRICS has 0 observations and 11 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+ERROR: Variable PARM not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.SUMMARY_STATS may be incomplete.  When this step was 
+         stopped there were 0 observations and 0 variables.
+WARNING: Data set WORK.SUMMARY_STATS was not replaced because this step was 
+         stopped.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: Variable empirical_se is uninitialized.
+NOTE: Variable estimated_se is uninitialized.
+NOTE: Variable mse is uninitialized.
+WARNING: The variable _TYPE_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable _FREQ_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable abs_bias in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable squared_error in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable parm in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable true_value in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable estimate in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable empirical_bias in the DROP, KEEP, or RENAME list has 
+         never been referenced.
+WARNING: The variable relative_bias in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable coverage in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable p_reject_h0 in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+NOTE: There were 0 observations read from the data set WORK.SUMMARY_STATS.
+NOTE: The data set WORK.FINAL_OUTPUT has 0 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Line generated by the macro variable "SUFFIX".
+1     results.mi_performance_exchangeable_glm_mar
+      -------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Writing RTF Body file: J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\/output/reports/mi_performance_exchangeable_glm_m
+      ar_03AUG25.rtf
+ERROR: Variable PARAMETER not found.
+ERROR: Variable TRUE_VALUE not found.
+ERROR: Variable ESTIMATE not found.
+ERROR: Variable EMPIRICAL_BIAS not found.
+ERROR: Variable RELATIVE_BIAS not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable P_REJECT_H0 not found.
+ERROR: Variable N_SIMS not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: Variable Coverage is not on file WORK.FINAL_OUTPUT.
+ERROR: Variable PARAMETER not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable TRUE_VALUE not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+571  %combine_mi_betas(corr=exchangeable, rr=RR_NRadj, miss_type=mar);
+
+
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_1.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_2.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_3.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_4.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_5.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_6.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_7.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_8.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_9.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_10.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_11.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_12.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_13.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_14.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_15.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_16.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_17.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_18.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_19.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_20.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_21.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_22.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_23.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_24.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_25.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_26.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_27.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_28.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_29.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_30.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_31.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_32.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_33.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_34.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_35.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_36.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_37.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_38.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_39.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_40.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_41.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_42.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_43.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_44.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_45.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_46.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_47.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_48.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_49.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_50.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_51.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_52.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_53.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_54.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_55.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_56.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_57.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_58.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_59.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_60.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_61.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_62.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_63.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_64.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_65.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_66.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_67.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_68.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_69.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_70.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_71.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_72.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_73.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_74.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_75.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_76.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_77.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_78.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_79.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_80.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_81.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_82.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_83.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_84.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_85.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_86.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_87.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_88.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_89.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_90.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_91.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_92.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_93.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_94.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_95.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_96.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_97.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_98.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_99.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_100.DATA does not exist.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.MERGE_BETAS may be incomplete.  When this step was 
+         stopped there were 0 observations and 5 variables.
+WARNING: Data set WORK.MERGE_BETAS was not replaced because this step was 
+         stopped.
+NOTE: DATA statement used (Total process time):
+      real time           0.20 seconds
+      cpu time            0.06 seconds
+      
+
+
+ERROR: File DT_BETAS.BETAS_POP_EXCHANGEABLE.DATA does not exist.
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 0 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_METRICS has 0 observations and 11 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+ERROR: Variable PARM not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.SUMMARY_STATS may be incomplete.  When this step was 
+         stopped there were 0 observations and 0 variables.
+WARNING: Data set WORK.SUMMARY_STATS was not replaced because this step was 
+         stopped.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: Variable empirical_se is uninitialized.
+NOTE: Variable estimated_se is uninitialized.
+NOTE: Variable mse is uninitialized.
+WARNING: The variable _TYPE_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable _FREQ_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable abs_bias in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable squared_error in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable parm in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable true_value in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable estimate in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable empirical_bias in the DROP, KEEP, or RENAME list has 
+         never been referenced.
+WARNING: The variable relative_bias in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable coverage in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable p_reject_h0 in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+NOTE: There were 0 observations read from the data set WORK.SUMMARY_STATS.
+NOTE: The data set WORK.FINAL_OUTPUT has 0 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Line generated by the macro variable "SUFFIX".
+1     results.mi_performance_exchangeable_NRadj_mar
+      ---------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Writing RTF Body file: J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\/output/reports/mi_performance_exchangeable_NRadj
+      _mar_03AUG25.rtf
+ERROR: Variable PARAMETER not found.
+ERROR: Variable TRUE_VALUE not found.
+ERROR: Variable ESTIMATE not found.
+ERROR: Variable EMPIRICAL_BIAS not found.
+ERROR: Variable RELATIVE_BIAS not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable P_REJECT_H0 not found.
+ERROR: Variable N_SIMS not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: Variable Coverage is not on file WORK.FINAL_OUTPUT.
+ERROR: Variable PARAMETER not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable TRUE_VALUE not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+572  
+573  
+574  /* Independent correlation structure */
+575  %combine_mi_betas(corr=independent, rr=rr_glm_strat, miss_type=mar_strat);
+
+
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_1.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_2.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_3.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_4.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_5.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_6.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_7.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_8.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_9.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_10.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_11.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_12.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_13.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_14.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_15.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_16.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_17.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_18.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_19.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_20.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_21.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_22.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_23.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_24.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_25.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_26.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_27.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_28.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_29.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_30.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_31.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_32.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_33.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_34.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_35.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_36.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_37.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_38.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_39.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_40.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_41.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_42.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_43.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_44.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_45.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_46.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_47.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_48.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_49.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_50.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_51.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_52.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_53.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_54.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_55.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_56.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_57.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_58.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_59.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_60.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_61.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_62.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_63.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_64.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_65.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_66.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_67.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_68.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_69.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_70.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_71.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_72.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_73.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_74.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_75.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_76.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_77.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_78.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_79.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_80.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_81.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_82.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_83.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_84.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_85.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_86.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_87.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_88.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_89.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_90.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_91.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_92.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_93.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_94.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_95.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_96.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_97.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_98.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_99.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_GLM_STRAT_100.DATA does not exist.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.MERGE_BETAS may be incomplete.  When this step was 
+         stopped there were 0 observations and 5 variables.
+WARNING: Data set WORK.MERGE_BETAS was not replaced because this step was 
+         stopped.
+NOTE: DATA statement used (Total process time):
+      real time           0.22 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: File DT_BETAS.BETAS_POP_INDEPENDENT.DATA does not exist.
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 0 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_METRICS has 0 observations and 11 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+ERROR: Variable PARM not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.SUMMARY_STATS may be incomplete.  When this step was 
+         stopped there were 0 observations and 0 variables.
+WARNING: Data set WORK.SUMMARY_STATS was not replaced because this step was 
+         stopped.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: Variable empirical_se is uninitialized.
+NOTE: Variable estimated_se is uninitialized.
+NOTE: Variable mse is uninitialized.
+WARNING: The variable _TYPE_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable _FREQ_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable abs_bias in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable squared_error in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable parm in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable true_value in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable estimate in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable empirical_bias in the DROP, KEEP, or RENAME list has 
+         never been referenced.
+WARNING: The variable relative_bias in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable coverage in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable p_reject_h0 in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+NOTE: There were 0 observations read from the data set WORK.SUMMARY_STATS.
+NOTE: The data set WORK.FINAL_OUTPUT has 0 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Line generated by the macro variable "SUFFIX".
+1     results.mi_performance_independent_glm_strat_mar_strat
+      ------------------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Writing RTF Body file: J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\/output/reports/mi_performance_independent_glm_st
+      rat_mar_strat_03AUG25.rtf
+ERROR: Variable PARAMETER not found.
+ERROR: Variable TRUE_VALUE not found.
+ERROR: Variable ESTIMATE not found.
+ERROR: Variable EMPIRICAL_BIAS not found.
+ERROR: Variable RELATIVE_BIAS not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable P_REJECT_H0 not found.
+ERROR: Variable N_SIMS not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: Variable Coverage is not on file WORK.FINAL_OUTPUT.
+ERROR: Variable PARAMETER not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable TRUE_VALUE not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+576  %combine_mi_betas(corr=independent, rr=RR_glm_agestrat_strat,
+576! miss_type=mar_strat);
+
+
+ERROR: Missing numeric suffix on a numbered data set list (.-.).
+NOTE: Line generated by the macro variable "START".
+1     dt_b_s1.independent_RR_glm_agestrat_strat_1
+      -------------------------------------------
+      307
+NOTE: Line generated by the macro variable "END".
+1     dt_b_s1.independent_RR_glm_agestrat_strat_100
+      ---------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.MERGE_BETAS may be incomplete.  When this step was 
+         stopped there were 0 observations and 5 variables.
+WARNING: Data set WORK.MERGE_BETAS was not replaced because this step was 
+         stopped.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: File DT_BETAS.BETAS_POP_INDEPENDENT.DATA does not exist.
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 0 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_METRICS has 0 observations and 11 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+ERROR: Variable PARM not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.SUMMARY_STATS may be incomplete.  When this step was 
+         stopped there were 0 observations and 0 variables.
+WARNING: Data set WORK.SUMMARY_STATS was not replaced because this step was 
+         stopped.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: Variable empirical_se is uninitialized.
+NOTE: Variable estimated_se is uninitialized.
+NOTE: Variable mse is uninitialized.
+WARNING: The variable _TYPE_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable _FREQ_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable abs_bias in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable squared_error in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable parm in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable true_value in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable estimate in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable empirical_bias in the DROP, KEEP, or RENAME list has 
+         never been referenced.
+WARNING: The variable relative_bias in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable coverage in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable p_reject_h0 in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+NOTE: There were 0 observations read from the data set WORK.SUMMARY_STATS.
+NOTE: The data set WORK.FINAL_OUTPUT has 0 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Line generated by the macro variable "SUFFIX".
+1     results.mi_performance_independent_glm_agestrat_strat_mar_strat
+      ---------------------------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Writing RTF Body file: J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\/output/reports/mi_performance_independent_glm_ag
+      estrat_strat_mar_strat_03AUG25.rtf
+ERROR: Variable PARAMETER not found.
+ERROR: Variable TRUE_VALUE not found.
+ERROR: Variable ESTIMATE not found.
+ERROR: Variable EMPIRICAL_BIAS not found.
+ERROR: Variable RELATIVE_BIAS not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable P_REJECT_H0 not found.
+ERROR: Variable N_SIMS not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: Variable Coverage is not on file WORK.FINAL_OUTPUT.
+ERROR: Variable PARAMETER not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable TRUE_VALUE not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+577  %combine_mi_betas(corr=independent, rr=RR_NRadj_strat, miss_type=mar_strat)
+577! ;
+
+
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_1.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_2.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_3.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_4.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_5.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_6.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_7.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_8.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_9.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_10.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_11.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_12.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_13.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_14.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_15.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_16.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_17.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_18.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_19.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_20.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_21.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_22.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_23.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_24.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_25.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_26.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_27.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_28.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_29.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_30.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_31.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_32.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_33.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_34.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_35.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_36.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_37.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_38.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_39.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_40.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_41.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_42.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_43.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_44.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_45.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_46.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_47.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_48.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_49.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_50.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_51.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_52.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_53.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_54.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_55.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_56.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_57.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_58.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_59.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_60.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_61.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_62.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_63.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_64.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_65.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_66.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_67.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_68.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_69.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_70.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_71.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_72.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_73.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_74.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_75.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_76.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_77.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_78.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_79.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_80.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_81.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_82.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_83.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_84.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_85.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_86.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_87.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_88.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_89.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_90.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_91.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_92.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_93.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_94.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_95.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_96.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_97.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_98.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_99.DATA does not exist.
+ERROR: File DT_B_S1.INDEPENDENT_RR_NRADJ_STRAT_100.DATA does not exist.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.MERGE_BETAS may be incomplete.  When this step was 
+         stopped there were 0 observations and 5 variables.
+WARNING: Data set WORK.MERGE_BETAS was not replaced because this step was 
+         stopped.
+NOTE: DATA statement used (Total process time):
+      real time           0.18 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: File DT_BETAS.BETAS_POP_INDEPENDENT.DATA does not exist.
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 0 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_METRICS has 0 observations and 11 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+ERROR: Variable PARM not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.SUMMARY_STATS may be incomplete.  When this step was 
+         stopped there were 0 observations and 0 variables.
+WARNING: Data set WORK.SUMMARY_STATS was not replaced because this step was 
+         stopped.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: Variable empirical_se is uninitialized.
+NOTE: Variable estimated_se is uninitialized.
+NOTE: Variable mse is uninitialized.
+WARNING: The variable _TYPE_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable _FREQ_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable abs_bias in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable squared_error in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable parm in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable true_value in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable estimate in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable empirical_bias in the DROP, KEEP, or RENAME list has 
+         never been referenced.
+WARNING: The variable relative_bias in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable coverage in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable p_reject_h0 in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+NOTE: There were 0 observations read from the data set WORK.SUMMARY_STATS.
+NOTE: The data set WORK.FINAL_OUTPUT has 0 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Line generated by the macro variable "SUFFIX".
+1     results.mi_performance_independent_NRadj_strat_mar_strat
+      --------------------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Writing RTF Body file: J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\/output/reports/mi_performance_independent_NRadj_
+      strat_mar_strat_03AUG25.rtf
+ERROR: Variable PARAMETER not found.
+ERROR: Variable TRUE_VALUE not found.
+ERROR: Variable ESTIMATE not found.
+ERROR: Variable EMPIRICAL_BIAS not found.
+ERROR: Variable RELATIVE_BIAS not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable P_REJECT_H0 not found.
+ERROR: Variable N_SIMS not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: Variable Coverage is not on file WORK.FINAL_OUTPUT.
+ERROR: Variable PARAMETER not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable TRUE_VALUE not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+578  
+579  /* Exchangeable correlation structure */
+580  %combine_mi_betas(corr=exchangeable, rr=rr_glm_strat, miss_type=mar_strat);
+
+
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_1.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_2.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_3.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_4.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_5.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_6.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_7.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_8.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_9.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_10.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_11.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_12.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_13.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_14.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_15.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_16.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_17.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_18.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_19.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_20.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_21.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_22.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_23.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_24.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_25.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_26.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_27.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_28.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_29.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_30.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_31.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_32.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_33.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_34.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_35.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_36.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_37.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_38.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_39.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_40.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_41.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_42.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_43.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_44.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_45.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_46.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_47.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_48.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_49.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_50.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_51.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_52.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_53.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_54.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_55.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_56.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_57.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_58.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_59.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_60.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_61.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_62.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_63.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_64.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_65.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_66.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_67.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_68.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_69.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_70.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_71.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_72.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_73.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_74.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_75.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_76.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_77.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_78.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_79.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_80.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_81.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_82.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_83.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_84.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_85.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_86.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_87.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_88.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_89.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_90.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_91.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_92.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_93.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_94.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_95.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_96.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_97.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_98.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_99.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_GLM_STRAT_100.DATA does not exist.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.MERGE_BETAS may be incomplete.  When this step was 
+         stopped there were 0 observations and 5 variables.
+WARNING: Data set WORK.MERGE_BETAS was not replaced because this step was 
+         stopped.
+NOTE: DATA statement used (Total process time):
+      real time           0.20 seconds
+      cpu time            0.06 seconds
+      
+
+
+ERROR: File DT_BETAS.BETAS_POP_EXCHANGEABLE.DATA does not exist.
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 0 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_METRICS has 0 observations and 11 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+ERROR: Variable PARM not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.SUMMARY_STATS may be incomplete.  When this step was 
+         stopped there were 0 observations and 0 variables.
+WARNING: Data set WORK.SUMMARY_STATS was not replaced because this step was 
+         stopped.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+
+NOTE: Variable empirical_se is uninitialized.
+NOTE: Variable estimated_se is uninitialized.
+NOTE: Variable mse is uninitialized.
+WARNING: The variable _TYPE_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable _FREQ_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable abs_bias in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable squared_error in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable parm in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable true_value in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable estimate in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable empirical_bias in the DROP, KEEP, or RENAME list has 
+         never been referenced.
+WARNING: The variable relative_bias in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable coverage in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable p_reject_h0 in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+NOTE: There were 0 observations read from the data set WORK.SUMMARY_STATS.
+NOTE: The data set WORK.FINAL_OUTPUT has 0 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Line generated by the macro variable "SUFFIX".
+1     results.mi_performance_exchangeable_glm_strat_mar_strat
+      -------------------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Writing RTF Body file: J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\/output/reports/mi_performance_exchangeable_glm_s
+      trat_mar_strat_03AUG25.rtf
+ERROR: Variable PARAMETER not found.
+ERROR: Variable TRUE_VALUE not found.
+ERROR: Variable ESTIMATE not found.
+ERROR: Variable EMPIRICAL_BIAS not found.
+ERROR: Variable RELATIVE_BIAS not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable P_REJECT_H0 not found.
+ERROR: Variable N_SIMS not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: Variable Coverage is not on file WORK.FINAL_OUTPUT.
+ERROR: Variable PARAMETER not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable TRUE_VALUE not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+581  %combine_mi_betas(corr=exchangeable, rr=RR_glm_agestrat_strat,
+581! miss_type=mar_strat);
+
+
+ERROR: Missing numeric suffix on a numbered data set list (.-.).
+NOTE: Line generated by the macro variable "START".
+1     dt_b_s1.exchangeable_RR_glm_agestrat_strat_1
+      --------------------------------------------
+      307
+NOTE: Line generated by the macro variable "END".
+1     dt_b_s1.exchangeable_RR_glm_agestrat_strat_100
+      ----------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.MERGE_BETAS may be incomplete.  When this step was 
+         stopped there were 0 observations and 5 variables.
+WARNING: Data set WORK.MERGE_BETAS was not replaced because this step was 
+         stopped.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: File DT_BETAS.BETAS_POP_EXCHANGEABLE.DATA does not exist.
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 0 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_METRICS has 0 observations and 11 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+ERROR: Variable PARM not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.SUMMARY_STATS may be incomplete.  When this step was 
+         stopped there were 0 observations and 0 variables.
+WARNING: Data set WORK.SUMMARY_STATS was not replaced because this step was 
+         stopped.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: Variable empirical_se is uninitialized.
+NOTE: Variable estimated_se is uninitialized.
+NOTE: Variable mse is uninitialized.
+WARNING: The variable _TYPE_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable _FREQ_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable abs_bias in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable squared_error in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable parm in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable true_value in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable estimate in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable empirical_bias in the DROP, KEEP, or RENAME list has 
+         never been referenced.
+WARNING: The variable relative_bias in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable coverage in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable p_reject_h0 in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+NOTE: There were 0 observations read from the data set WORK.SUMMARY_STATS.
+NOTE: The data set WORK.FINAL_OUTPUT has 0 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Line generated by the macro variable "SUFFIX".
+1     results.mi_performance_exchangeable_glm_agestrat_strat_mar_strat
+      ----------------------------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Writing RTF Body file: J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\/output/reports/mi_performance_exchangeable_glm_a
+      gestrat_strat_mar_strat_03AUG25.rtf
+ERROR: Variable PARAMETER not found.
+ERROR: Variable TRUE_VALUE not found.
+ERROR: Variable ESTIMATE not found.
+ERROR: Variable EMPIRICAL_BIAS not found.
+ERROR: Variable RELATIVE_BIAS not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable P_REJECT_H0 not found.
+ERROR: Variable N_SIMS not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: Variable Coverage is not on file WORK.FINAL_OUTPUT.
+ERROR: Variable PARAMETER not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable TRUE_VALUE not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+582  %combine_mi_betas(corr=exchangeable, rr=RR_NRadj_strat,
+582! miss_type=mar_strat);
+
+
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_1.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_2.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_3.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_4.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_5.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_6.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_7.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_8.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_9.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_10.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_11.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_12.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_13.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_14.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_15.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_16.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_17.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_18.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_19.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_20.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_21.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_22.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_23.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_24.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_25.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_26.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_27.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_28.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_29.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_30.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_31.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_32.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_33.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_34.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_35.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_36.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_37.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_38.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_39.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_40.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_41.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_42.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_43.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_44.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_45.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_46.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_47.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_48.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_49.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_50.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_51.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_52.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_53.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_54.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_55.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_56.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_57.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_58.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_59.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_60.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_61.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_62.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_63.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_64.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_65.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_66.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_67.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_68.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_69.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_70.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_71.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_72.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_73.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_74.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_75.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_76.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_77.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_78.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_79.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_80.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_81.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_82.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_83.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_84.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_85.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_86.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_87.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_88.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_89.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_90.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_91.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_92.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_93.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_94.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_95.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_96.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_97.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_98.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_99.DATA does not exist.
+ERROR: File DT_B_S1.EXCHANGEABLE_RR_NRADJ_STRAT_100.DATA does not exist.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.MERGE_BETAS may be incomplete.  When this step was 
+         stopped there were 0 observations and 5 variables.
+WARNING: Data set WORK.MERGE_BETAS was not replaced because this step was 
+         stopped.
+NOTE: DATA statement used (Total process time):
+      real time           0.20 seconds
+      cpu time            0.04 seconds
+      
+
+
+ERROR: File DT_BETAS.BETAS_POP_EXCHANGEABLE.DATA does not exist.
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 0 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_METRICS has 0 observations and 11 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+ERROR: Variable PARM not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+WARNING: The data set WORK.SUMMARY_STATS may be incomplete.  When this step was 
+         stopped there were 0 observations and 0 variables.
+WARNING: Data set WORK.SUMMARY_STATS was not replaced because this step was 
+         stopped.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+
+NOTE: Variable empirical_se is uninitialized.
+NOTE: Variable estimated_se is uninitialized.
+NOTE: Variable mse is uninitialized.
+WARNING: The variable _TYPE_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable _FREQ_ in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable abs_bias in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable squared_error in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable parm in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable true_value in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable estimate in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable empirical_bias in the DROP, KEEP, or RENAME list has 
+         never been referenced.
+WARNING: The variable relative_bias in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+WARNING: The variable coverage in the DROP, KEEP, or RENAME list has never been 
+         referenced.
+WARNING: The variable p_reject_h0 in the DROP, KEEP, or RENAME list has never 
+         been referenced.
+NOTE: There were 0 observations read from the data set WORK.SUMMARY_STATS.
+NOTE: The data set WORK.FINAL_OUTPUT has 0 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Line generated by the macro variable "SUFFIX".
+1     results.mi_performance_exchangeable_NRadj_strat_mar_strat
+      ---------------------------------------------------------
+      307
+
+ERROR 307-185: The data set name cannot have more than 32 characters.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Writing RTF Body file: J:\HCHS\STATISTICS\GRAS\Beibo\Computing 
+      Requests\HCHS_simulation\/output/reports/mi_performance_exchangeable_NRadj
+      _strat_mar_strat_03AUG25.rtf
+ERROR: Variable PARAMETER not found.
+ERROR: Variable TRUE_VALUE not found.
+ERROR: Variable ESTIMATE not found.
+ERROR: Variable EMPIRICAL_BIAS not found.
+ERROR: Variable RELATIVE_BIAS not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable P_REJECT_H0 not found.
+ERROR: Variable N_SIMS not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+ERROR: Variable Coverage is not on file WORK.FINAL_OUTPUT.
+ERROR: Variable PARAMETER not found.
+ERROR: Variable COVERAGE not found.
+ERROR: Variable TRUE_VALUE not found.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE PRINT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+583  
+584  
+
+
+585  proc printto; run;
+
