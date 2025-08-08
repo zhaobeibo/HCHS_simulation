@@ -9,6 +9,8 @@ library(openxlsx)
 main_path <- "C://Users//zhaob//OneDrive - University of North Carolina at Chapel Hill//CSCC//HCHS//V3_SIM//suddan//HCHS_simulation//"
 file_path <- paste0(main_path, "output//alex//GENMOD - GEE Results.xlsx")
 
+threshold <- 0.01
+
 # Read data
 method_codes <- read_excel(file_path, sheet = "Method Codes")
 batch_output <- read_excel(file_path, sheet = "Batch Output")
@@ -201,7 +203,7 @@ calculate_se_differences <- function(efficiency_data) {
               mutate(
                 relative_se_diff = (comp_se - ref_se) / ref_se,
                 relative_se_diff_pct = relative_se_diff * 100,
-                efficiency_issue = ifelse(abs(relative_se_diff) > 0.10, 1, 0),
+                efficiency_issue = ifelse(abs(relative_se_diff) > threshold, 1, 0),
                 comparison_set = set_name,
                 outcome_type = outcome,
                 correlation = corr_name,  # Use readable name for output
@@ -579,10 +581,10 @@ if (nrow(se_comparisons) > 0) {
            scenario, Parm, comparison_method, relative_se_diff_pct)
   
   if (nrow(worst_issues) > 0) {
-    cat("\nTop 10 worst efficiency issues (>10% SE difference):\n")
+    cat("\nTop 10 worst efficiency issues (>% SE difference):\n")
     print(worst_issues)
   } else {
-    cat("\nNo efficiency issues found (no cases with >10% SE difference)\n")
+    cat("\nNo efficiency issues found (no cases with >% SE difference)\n")
   }
   
   cat("\n=== Analysis completed successfully! ===\n")

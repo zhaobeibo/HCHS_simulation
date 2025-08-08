@@ -14,6 +14,8 @@ method_codes <- read_excel(file_path, sheet = "Method Codes")
 batch_output <- read_excel(file_path, sheet = "Batch Output")
 
 # set threshold for problematic coverage
+# lower_threshold <- 0.9365
+# upper_threshold <- 0.9635
 lower_threshold <- 0.925
 upper_threshold <- 0.975
 
