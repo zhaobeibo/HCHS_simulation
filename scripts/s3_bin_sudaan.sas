@@ -1,0 +1,224 @@
+%include "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\scripts\_init.sas";
+
+proc printto log = "&homepath./logs/s3_bin_sudaan_&sysdate..log"
+			 print= "&homepath./lst/s3_bin_sudaan_&sysdate..lst" new; run; 
+
+data vars_labels;
+    input MODELRHS Variable $20.; 
+    	datalines;
+	1 Intercept
+	2 x17
+	3 x12
+	4 x18
+	5 y_bmi
+	6 age_strat_new
+	7 x6
+    ;
+run;
+
+%macro impute_sudaan_binary(start=, end=, corr=, corr_full=, rr=, miss= ,nimpute=5);
+  %do i = &start. %to &end.;
+			data samp;	
+				set sample.samplemiss_&i;
+
+		        /* weight adjusted for nomresponse */
+		        bghhsub_s2_nr = bghhsub_s2/ &rr.;
+		  
+		        where &miss. = 0;
+			run;
+
+			/* Sort samp by subid for merging */
+			proc sort data = samp;
+				by subid;
+			run;
+
+			/* Step 1: Create a dataset with subid in V3 */
+			proc sql;
+			   create table valid_subid as
+			   select distinct subid
+			   from samp
+			   where v_num = 3;
+			quit;
+
+			/* Sort valid_subid by subid for merging */
+			proc sort data = valid_subid;
+				by subid;
+			run;
+					
+			/* Step 2: Merge samp with valid_subid to keep only valid subids */
+			data samp_filtered;
+			   merge samp(in=a) valid_subid(in=b);
+			   by subid;
+			   if b;  /* Only keep records from samp where subid is in valid_subid */
+			run;
+
+			/* Step 3: Create a dataset with the value of bghhsub_s2_nr for v_num = 3 for each subid */
+			proc sql;
+			   create table temp as
+			   select subid, bghhsub_s2_nr as bghhsub_s2_v3_nr
+			   from samp_filtered
+			   where v_num = 3;
+			quit;
+
+			/* Step 4: Merge the new variable back into the filtered dataset */
+			data samplemiss_&i._;
+			   merge samp_filtered temp;
+			   by subid;
+			run;
+
+			/* Order data */
+			proc sort data = samplemiss_&i._; 
+				by strat_recoded bgid hhid subid; 
+			run;
+
+            /* Transform from long to wide */
+            	/* This step is the preparation step for multiple imputation */
+			data samp_1(rename=(x6=x6_1 y_bmi=y_bmi_1 y_bin_gfr=y_bin_gfr_1 bghhsub_s2_nr=w_nr_1)) 
+					samp_2(rename=(x6=x6_2 y_bmi=y_bmi_2 y_bin_gfr=y_bin_gfr_2 bghhsub_s2_nr=w_nr_2)) 
+					samp_3(rename=(x6=x6_3 y_bmi=y_bmi_3 y_bin_gfr=y_bin_gfr_3 bghhsub_s2_nr=w_nr_3));
+			    set samplemiss_&i._;
+			    if v_num = 1 then output samp_1;
+			    else if v_num = 2 then output samp_2;        
+			    else if v_num = 3 then output samp_3;
+			run;
+
+			* Sort the 3 datasets;
+			proc sort data = samp_1; by subid; run;
+			proc sort data = samp_2; by subid; run;
+			proc sort data = samp_3; by subid; run;
+
+				* merging the 3 new datasets;
+			data samp_wide;
+                merge samp_1-samp_3;
+                by subid;
+            run;
+
+				* sort the output datasets;
+			proc sort data = samp_wide;
+                 by subid;
+            run;
+
+                * obtain the # of missing values by var ; 
+			proc means data = samp_wide noprint;
+                 var  x17 x12 x18 y_bmi_1-y_bmi_3 age_strat_new
+                            x6_2-x6_3 y_bin_gfr_1-y_bin_gfr_3
+                            x14 w_nr_1 w_nr_2 w_nr_3;
+            	output out= mi_miss nmiss=;
+            run;
+
+				* transpose the values from proc means;
+            proc transpose data = mi_miss(drop=_TYPE_ _FREQ_) out=mi_long;
+            run;
+
+				* sort the values by # missing;
+            proc sort data = mi_long;
+                    by col1;
+            run;
+
+            proc sql noprint;
+                    select distinct _name_ into:var separated by ' ' from mi_long;
+            quit;
+            %put &var.;
+
+			data samp_wide;
+				set samp_wide;
+				strat_psu = cats(strat_recoded,bgid);
+			run;
+
+			proc mi data=samp_wide seed=2021 nimpute=&nimpute out=samp_complete;	
+				class strat_psu y_bin_gfr_1 y_bin_gfr_2 y_bin_gfr_3;
+				fcs reg(x6_2-x6_3 y_bmi_2-y_bmi_3) logistic(y_bin_gfr_2-y_bin_gfr_3);
+				var &var. strat_psu; 
+            run;
+
+			    /* Transform the imputed datasets from wide format to long */
+            data samp_long;
+                    set samp_complete;
+                    v_num = 1;
+                    x6 = x6_1;
+                    y_bmi = y_bmi_1;
+                    y_bin_gfr = y_bin_gfr_1;
+					bghhsub_s2_nr = w_nr_1;
+                    output;
+
+                    v_num = 2;
+                    x6 = x6_2;
+                    y_bmi = y_bmi_2;
+                    y_bin_gfr = y_bin_gfr_2;
+					bghhsub_s2_nr = w_nr_2;
+                    output;
+
+                    v_num = 3;
+                    x6 = x6_3;
+                    y_bmi = y_bmi_3;
+                    y_bin_gfr = y_bin_gfr_3;
+					bghhsub_s2_nr = w_nr_3;
+                    output;
+            run;
+
+					* Fit rlogist model from sudaan using corr matrix; 
+				* Looping over the 5 imputed datasets;
+				%do j = 1 %to &nimpute; 
+					data temp;
+						set samp_long;
+						if _imputation_ = &j;
+					run;
+				proc sort data = temp; 
+					by strat_recoded bgid hhid subid; 
+				run;  	
+					options pagesize=60 linesize=80;
+					proc rlogist data = temp filetype=sas r=&corr_full semethod=zeger;
+						%if &corr. = exch %then %do; 
+							nest strat_recoded hhid / psulev=2 ;
+						%end;
+						%else %do;
+							nest strat_recoded hhid;
+						%end;
+						weight bghhsub_s2_v3_nr; 
+						model y_bin_gfr = x17 x12 x18 y_bmi age_strat_new x6;
+						output beta sebeta p_beta t_beta / filename=betas_mi_&corr._&i._&j filetype=sas replace;
+					run;
+
+					data betas_mi_&corr._&i._&j; 
+						merge vars_labels betas_mi_&corr._&i._&j ;
+						by modelrhs;
+						_imputation_ = &j;
+						ClassVal0 = '';
+						DF = 1;
+						rename beta = Estimate sebeta = StdErr p_beta = ProbChisq t_beta = WaldChisq;
+						drop procnum modelno modelrhs;
+					run;
+				%end;
+		* merging the imputed datasets;
+		data outparms;
+			set betas_mi_&corr._&i._1 - betas_mi_&corr._&i._&nimpute.;
+		run;
+		* combine estimates;
+		proc mianalyze parms = outparms; 
+			modeleffects intercept x17 x12 x18 y_bmi age_strat_new x6; 
+			ods output ParameterEstimates = betas_mi_&corr._&i;
+		run;			
+		data bs3.&corr._&rr._&i;
+                        SET betas_mi_&corr._&i(RENAME=(UCLMEAN = UPPERCL LCLMEAN=LOWERCL ));
+        run;
+  %end;
+%mend impute_sudaan_binary;
+
+* miss_ind_mar;
+%impute_sudaan_binary(start=1, end=100, corr=ind, corr_full=independent, rr=rr_glm, miss= miss_ind_mar);
+%impute_sudaan_binary(start=1, end=100, corr=ind, corr_full=independent, rr=RR_NRadj, miss= miss_ind_mar);
+
+%impute_sudaan_binary(start=1, end=100, corr=exch, corr_full=exchangeable, rr=rr_glm, miss= miss_ind_mar);
+%impute_sudaan_binary(start=1, end=100, corr=exch, corr_full=exchangeable, rr=RR_NRadj, miss= miss_ind_mar);
+
+* miss_ind_mar_strat;
+/*%impute_sudaan_binary(corr=ind, corr_full=independent, rr=rr_glm_strat, miss= miss_ind_mar_strat);*/
+/*%impute_sudaan_binary(corr=ind, corr_full=independent, rr=RR_glm_agestrat_strat, miss= miss_ind_mar_strat);*/
+/*%impute_sudaan_binary(corr=ind, corr_full=independent, rr=RR_NRadj_strat, miss= miss_ind_mar_strat);*/
+/**/
+/*%impute_sudaan_binary(corr=exch, corr_full=exchangeable, rr=rr_glm_strat, miss= miss_ind_mar_strat);*/
+/*%impute_sudaan_binary(corr=exch, corr_full=exchangeable, rr=RR_glm_agestrat_strat, miss= miss_ind_mar_strat);*/
+/*%impute_sudaan_binary(corr=exch, corr_full=exchangeable, rr=RR_NRadj_strat, miss= miss_ind_mar_strat);*/
+
+
+proc printto; run;

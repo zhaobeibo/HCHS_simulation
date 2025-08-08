@@ -53,6 +53,7 @@ proc printto log = "&homepath./logs/s2_sudaan_&sysdate..log"
 		merge betas_&corr._&i._(rename=(BETA=Estimate SEBETA=Stderr P_BETA=ProbZ t_beta=t)) parms;  
 		by modelrhs;
 		length parm $ 20;
+		format Estimate Stderr 12.4;
 		drop procnum modelno modelrhs;
 	run;
 	

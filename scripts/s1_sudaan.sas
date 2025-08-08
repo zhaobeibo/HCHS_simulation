@@ -1,7 +1,7 @@
 %include "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\scripts\_init.sas";
 
-proc printto log = "&homepath./logs/1_impute_sudaan_&sysdate..log"
-			 print= "&homepath./lst/1_impute_sudaan_&sysdate..lst" new; run; 
+proc printto log = "&homepath./logs/s1_sudaan_&sysdate..log"
+			 print= "&homepath./lst/s1_sudaan_&sysdate..lst" new; run; 
 
 data vars_labels;
     input MODELRHS Variable $20.; 
@@ -161,20 +161,20 @@ run;
 %mend impute_sudaan;
 
 * miss_ind_mar;
-%impute_sudaan(start=383, end=383, corr=ind, corr_full=independent, rr=rr_glm, miss= miss_ind_mar);
-%impute_sudaan(corr=ind, corr_full=independent, rr=RR_NRadj, miss= miss_ind_mar);
+/*%impute_sudaan(start=383, end=383, corr=ind, corr_full=independent, rr=rr_glm, miss= miss_ind_mar);*/
+/*%impute_sudaan(start=404, end=404, corr=ind, corr_full=independent, rr=RR_NRadj, miss= miss_ind_mar);*/
 
-%impute_sudaan(corr=exch, corr_full=exchangeable, rr=rr_glm, miss= miss_ind_mar);
-%impute_sudaan(corr=exch, corr_full=exchangeable, rr=RR_NRadj, miss= miss_ind_mar);
+%impute_sudaan(start=151, end=500, corr=exch, corr_full=exchangeable, rr=rr_glm, miss= miss_ind_mar);
+%impute_sudaan(start=101, end=500, corr=exch, corr_full=exchangeable, rr=RR_NRadj, miss= miss_ind_mar);
 
 * miss_ind_mar_strat;
-%impute_sudaan(corr=ind, corr_full=independent, rr=rr_glm_strat, miss= miss_ind_mar_strat);
-%impute_sudaan(corr=ind, corr_full=independent, rr=RR_glm_agestrat_strat, miss= miss_ind_mar_strat);
-%impute_sudaan(corr=ind, corr_full=independent, rr=RR_NRadj_strat, miss= miss_ind_mar_strat);
-
-%impute_sudaan(corr=exch, corr_full=exchangeable, rr=rr_glm_strat, miss= miss_ind_mar_strat);
-%impute_sudaan(corr=exch, corr_full=exchangeable, rr=RR_glm_agestrat_strat, miss= miss_ind_mar_strat);
-%impute_sudaan(corr=exch, corr_full=exchangeable, rr=RR_NRadj_strat, miss= miss_ind_mar_strat);
+/*%impute_sudaan(corr=ind, corr_full=independent, rr=rr_glm_strat, miss= miss_ind_mar_strat);*/
+/*%impute_sudaan(corr=ind, corr_full=independent, rr=RR_glm_agestrat_strat, miss= miss_ind_mar_strat);*/
+/*%impute_sudaan(corr=ind, corr_full=independent, rr=RR_NRadj_strat, miss= miss_ind_mar_strat);*/
+/**/
+/*%impute_sudaan(corr=exch, corr_full=exchangeable, rr=rr_glm_strat, miss= miss_ind_mar_strat);*/
+/*%impute_sudaan(corr=exch, corr_full=exchangeable, rr=RR_glm_agestrat_strat, miss= miss_ind_mar_strat);*/
+/*%impute_sudaan(corr=exch, corr_full=exchangeable, rr=RR_NRadj_strat, miss= miss_ind_mar_strat);*/
 
 
 proc printto; run;

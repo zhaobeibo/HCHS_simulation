@@ -1,7 +1,7 @@
 %include "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\scripts\_init.sas";
 
-proc printto log = "&homepath./logs/combine_sudaan_&sysdate..log"
-             print= "&homepath./lst/combine_sudaan_&sysdate..lst" new; run; 
+proc printto log = "&homepath./logs/combine_&sysdate..log"
+             print= "&homepath./lst/combine_&sysdate..lst" new; run; 
 
 *********************************************************************************************************
         
@@ -13,7 +13,7 @@ proc printto log = "&homepath./logs/combine_sudaan_&sysdate..log"
                         - Aug2025: Updated for consistency with R simulation framework (BZ)
 *********************************************************************************************************;
 
-%macro combine_mi_betas(start=, end=, corr=, corr_full = , rr=, 
+%macro combine_con_betas(start=, end=, corr=, corr_full = , rr=, 
                        input_lib=, pop_lib=dt_betas, output_lib=outpath);
 
     /* Merge files containing beta estimates using sample data */
@@ -71,49 +71,89 @@ proc printto log = "&homepath./logs/combine_sudaan_&sysdate..log"
     run;
 
 
-%mend combine_mi_betas;
+%mend combine_con_betas;
 
 
 * s1;
-* Complete %combine_mi_betas macro calls for all scenarios;
+* Complete %combine_con_betas macro calls for all scenarios;
 
 * miss_ind_mar scenarios;
-%combine_mi_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_rr_glm_, 
+%combine_con_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_rr_glm_, 
                  input_lib=s1);
 
-%combine_mi_betas(corr=ind, corr_full=independent, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=500,corr=ind, corr_full=independent, rr=_rr_nradj_, 
                  input_lib=s1);
 
-%combine_mi_betas(corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
                  input_lib=s1);
 
-%combine_mi_betas(corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
                  input_lib=s1);
 
 * miss_ind_mar_strat scenarios;
-%combine_mi_betas(corr=ind, corr_full=independent, rr=_rr_glm_strat_, 
-                 input_lib=s1);
-
-%combine_mi_betas(corr=ind, corr_full=independent, rr=_rr_glm_agestrat_strat_, 
-                 input_lib=s1);
-
-%combine_mi_betas(corr=ind, corr_full=independent, rr=_rr_nradj_strat_, 
-                 input_lib=s1);
-
-%combine_mi_betas(corr=exch, corr_full=exchangeable, rr=_rr_glm_strat_, 
-                 input_lib=s1);
-
-%combine_mi_betas(corr=exch, corr_full=exchangeable, rr=_rr_glm_agestrat_strat_, 
-                 input_lib=s1);
-
-%combine_mi_betas(corr=exch, corr_full=exchangeable, rr=_rr_nradj_strat_, 
-                 input_lib=s1);
+/*%combine_con_betas(corr=ind, corr_full=independent, rr=_rr_glm_strat_, */
+/*                 input_lib=s1);*/
+/**/
+/*%combine_con_betas(corr=ind, corr_full=independent, rr=_rr_glm_agestrat_strat_, */
+/*                 input_lib=s1);*/
+/**/
+/*%combine_con_betas(corr=ind, corr_full=independent, rr=_rr_nradj_strat_, */
+/*                 input_lib=s1);*/
+/**/
+/*%combine_con_betas(corr=exch, corr_full=exchangeable, rr=_rr_glm_strat_, */
+/*                 input_lib=s1);*/
+/**/
+/*%combine_con_betas(corr=exch, corr_full=exchangeable, rr=_rr_glm_agestrat_strat_, */
+/*                 input_lib=s1);*/
+/**/
+/*%combine_con_betas(corr=exch, corr_full=exchangeable, rr=_rr_nradj_strat_, */
+/*                 input_lib=s1);*/
 
 * s2;
-%combine_mi_betas(corr=ind, corr_full=independent, rr=_, 
+%combine_con_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_, 
                        input_lib= s2 );
-%combine_mi_betas(corr=exch, corr_full=exchangeable,  rr=_, 
+%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable,  rr=_, 
                        input_lib= s2 );
 
+
+* s3;
+%combine_con_betas(start=1, end=100, corr=ind, corr_full=independent, rr=_rr_glm_, 
+                 input_lib=s3);
+
+%combine_con_betas(start=1, end=100,corr=ind, corr_full=independent, rr=_rr_nradj_, 
+                 input_lib=s3);
+
+%combine_con_betas(start=1, end=100, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+                 input_lib=s3);
+
+%combine_con_betas(start=1, end=100, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+                 input_lib=s3);
+
+* s4;
+%combine_con_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_rr_glm_, 
+                 input_lib=s4);
+
+%combine_con_betas(start=1, end=500,corr=ind, corr_full=independent, rr=_rr_nradj_, 
+                 input_lib=s4);
+
+%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+                 input_lib=s4);
+
+%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+                 input_lib=s4);
+
+
+ * s6;
+%combine_con_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_rr_glm_, 
+                 input_lib=s6);
+
+%combine_con_betas(start=1, end=500,corr=ind, corr_full=independent, rr=_rr_nradj_, 
+                 input_lib=s6);
+
+%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+                 input_lib=s6);
+
+%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+                 input_lib=s6);
 
 proc printto; run;

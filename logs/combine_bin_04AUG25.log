@@ -1,0 +1,244 @@
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           1.87 seconds
+      cpu time            0.14 seconds
+      
+
+36   
+37   ************************************************************************
+37 ! *********************************
+38   
+39           PROGRAM NAME: combine_sudaan.sas
+40           PROGRAMMER: Beibo Zhao (updated from AQA)
+41           DESCRIPTION: Combine results and calculate performance metrics
+41 ! for HCHS V3 simulation
+42           VERSION CONTROL:
+43                           - 24APR25: Initialize the code (AQA)
+44                           - Aug2025: Updated for consistency with R
+44 ! simulation framework (BZ)
+45   ************************************************************************
+45 ! *********************************;
+46   
+47   %macro combine_mi_betas(start=, end=, corr=, corr_full = , rr=,
+48                          input_lib=, pop_lib=dt_betas, output_lib=outpath)
+48 ! ;
+49   
+50       /* Merge files containing beta estimates using sample data */
+51       data merge_betas;
+52           set &input_lib..&corr.&rr.&start. - &input_lib..&corr.&rr.&end.;
+53           if parm = 'intercept' then parm = 'Intercept';
+54       run;
+55   
+56       /* Append the true value coming from population estimates */
+57       proc sql;
+58           create table betas_samp_pop as
+59           select a.*, b.estimate as true
+60           from merge_betas as a
+61           right join
+62           &pop_lib..betas_pop_bin_&corr. as b
+63           on a.parm=b.parm;
+64       quit;
+65   
+66       /* Compute 95% confidence intervals */
+67       data betas_samp_pop;
+68           set betas_samp_pop;
+69           uppercl = Estimate + 1.975 * Stderr;
+70           lowercl = Estimate - 1.975 * Stderr;
+71       run;
+72   
+73       /* Estimate quantities of interest: bias, ... */
+74       data betas_samp_pop_;
+75           set betas_samp_pop;
+76           /* Calculate statistics to summarize */
+77           inci = (uppercl >= true & lowercl <= true);
+78           bias = estimate - true;
+79           relbias = bias / true;
+80           /* PROBT */
+81           rejecth0 = (abs(t) > quantile('NORMAL',.975));
+82       run;
+83   
+84       /* Calculate summary statistics */
+85       proc means data=betas_samp_pop_ noprint nway;
+86           class parm;
+87           var true estimate bias relbias stderr inci rejecth0;
+88           output out=output_1 mean(true estimate bias relbias stderr inci
+89                   rejecth0)=true estimate empbias relbias estse coverage
+90                   prejecth0 std(estimate)=empse;
+91       run;
+92   
+93       /* Final calculations */
+94       data output;
+95           set output_1;
+96           relse = estse/empse - 1;
+97       run;
+98   
+99       /* Save output dataset */
+100      data &output_lib..&input_lib._&corr.&rr.;
+101          set output;
+102      run;
+103  
+104  
+105  %mend combine_mi_betas;
+106  
+107  
+108  * s1;
+109  * Complete %combine_mi_betas macro calls for all scenarios;
+110  
+111  * miss_ind_mar scenarios;
+112  %combine_mi_betas(start=1, end=84, corr=ind, corr_full=independent,
+112! rr=_rr_glm_,
+113                   input_lib=bs1);
+
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_1.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_2.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_3.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_4.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_5.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_6.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_7.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_8.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_9.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_10.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_11.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_12.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_13.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_14.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_15.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_16.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_17.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_18.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_19.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_20.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_21.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_22.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_23.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_24.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_25.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_26.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_27.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_28.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_29.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_30.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_31.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_32.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_33.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_34.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_35.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_36.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_37.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_38.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_39.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_40.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_41.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_42.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_43.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_44.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_45.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_46.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_47.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_48.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_49.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_50.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_51.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_52.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_53.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_54.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_55.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_56.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_57.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_58.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_59.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_60.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_61.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_62.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_63.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_64.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_65.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_66.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_67.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_68.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_69.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_70.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_71.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_72.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_73.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_74.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_75.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_76.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_77.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_78.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_79.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_80.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_81.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_82.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_83.
+NOTE: There were 7 observations read from the data set BS1.IND_RR_GLM_84.
+NOTE: The data set WORK.MERGE_BETAS has 588 observations and 12 variables.
+NOTE: DATA statement used (Total process time):
+      real time           3.60 seconds
+      cpu time            0.04 seconds
+      
+
+NOTE: Table WORK.BETAS_SAMP_POP created, with 588 rows and 13 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.04 seconds
+      
+
+
+NOTE: There were 588 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 588 observations and 13 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: Variable t is uninitialized.
+NOTE: Missing values were generated as a result of performing an operation 
+      on missing values.
+      Each place is given by: (Number of times) at (Line):(Column).
+      588 at 5:31   
+NOTE: There were 588 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_ has 588 observations and 18 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 588 observations read from the data set 
+      WORK.BETAS_SAMP_POP_.
+NOTE: The data set WORK.OUTPUT_1 has 7 observations and 11 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT_1.
+NOTE: The data set WORK.OUTPUT has 7 observations and 12 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT.
+NOTE: The data set OUTPATH.BS1_IND_RR_GLM_ has 7 observations and 12 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+114  
+115  
+116  
+117  * s2;
+118  
+119  
+120  
+121  proc printto; run;
+
