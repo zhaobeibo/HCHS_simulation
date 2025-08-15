@@ -6,7 +6,7 @@ library(tidyr)
 library(openxlsx)
 
 # Set file paths
-main_path <- "C://Users//zhaob//OneDrive - University of North Carolina at Chapel Hill//CSCC//HCHS//V3_SIM//suddan//HCHS_simulation//"
+main_path <- "J://HCHS//STATISTICS//GRAS//Beibo//Computing Requests//HCHS_simulation//"
 sas_data_path <- paste0(main_path, "data//derived//summary//")  # Adjust path to where SAS datasets are stored
 
 # set threshold for problematic coverage
@@ -23,26 +23,32 @@ create_method_mapping_sas <- function() {
     
     # Continuous outcomes
     # S1 - MI scenarios
-    input_lib = c(rep("s1", 4), rep("s2", 2), rep("s3", 4), rep("s4", 4), rep("s6", 4)),
-    corr = c("ind", "exch", "ind", "exch", "ind", "exch", 
-             "ind", "exch", "ind", "exch", "ind", "exch", "ind", "exch", 
+    input_lib = c(rep("s1", 4), rep("s2", 2), rep("s3", 4), rep("s4", 4), rep("s5", 4), rep("s6", 4)),
+    corr = c("ind", "exch", "ind", "exch", 
+             "ind", "exch", 
+             "ind", "exch", "ind", "exch",
+             "ind", "exch", "ind", "exch", 
+             "ind", "exch", "ind", "exch", 
              "ind", "exch", "ind", "exch"),
-    rr = c("_rr_glm_", "_rr_glm_", "_rr_nradj_", "_rr_nradj_", "_", "_",
+    rr = c("_rr_glm_", "_rr_glm_", "_rr_nradj_", "_rr_nradj_", 
+           "_", "_",
+           "_rr_glm_", "_rr_glm_", "_rr_nradj_", "_rr_nradj_",
            "_rr_glm_", "_rr_glm_", "_rr_nradj_", "_rr_nradj_",
            "_rr_glm_", "_rr_glm_", "_rr_nradj_", "_rr_nradj_",
            "_rr_glm_", "_rr_glm_", "_rr_nradj_", "_rr_nradj_"),
-    outcome_type = rep("Continuous", 18),
-    proc_type = rep("GENMOD", 18),
-    scenario = c(1, 1, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 6, 6, 6, 6),
-    correlation = rep(c("Independent", "Exchangeable"), 9),
+    outcome_type = rep("Continuous",22),
+    proc_type = rep("GENMOD", 22),
+    scenario = c(1, 1, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6),
+    correlation = rep(c("Independent", "Exchangeable"), 11),
     weight_method = c("RR_glm", "RR_glm", "RR_NRadj", "RR_NRadj", "RR_glm", "RR_glm",
                       "RR_glm", "RR_glm", "RR_NRadj", "RR_NRadj",
                       "RR_glm", "RR_glm", "RR_NRadj", "RR_NRadj",
+                      "RR_glm", "RR_glm", "RR_NRadj", "RR_NRadj",
                       "RR_glm", "RR_glm", "RR_NRadj", "RR_NRadj"),
-    missing_method = c(rep("MI", 4), rep("NO MI", 2), rep("MI", 4), rep("NO MI", 4), rep("NO MI", 4))
+    missing_method = c(rep("MI", 4), rep("NO MI", 2), rep("MI", 4), rep("NO MI", 4), rep("MI", 4), rep("NO MI", 4))
   )
   
-  # Add binary outcomes (bs1, bs2, bs3, bs4, bs6)
+  # Add binary outcomes (bs1, bs2, bs3, bs4, bs5, bs6)
   binary_mapping <- method_mapping
   binary_mapping$input_lib <- paste0("b", binary_mapping$input_lib)
   binary_mapping$outcome_type <- "Binary"
@@ -56,6 +62,7 @@ create_method_mapping_sas <- function() {
     all_mapping$scenario == 2 ~ "No MI + V1 Weight (Full Sample)",
     all_mapping$scenario == 3 ~ "MI + V3 Adjusted Weight (Restricted Sample)",
     all_mapping$scenario == 4 ~ "No MI + V3 Adjusted Weight (Restricted Sample)",
+    all_mapping$scenario == 5 ~ "MI + Visit-specific Weights (Full Sample)",
     all_mapping$scenario == 6 ~ "No MI + Visit-specific Weights (Full Sample)",
     TRUE ~ paste("Scenario", all_mapping$scenario)
   )
@@ -321,7 +328,7 @@ if (nrow(batch_output) > 0) {
   sample_size_summary <- create_sample_size_summary(batch_output)
   
   # Create Excel workbook with results
-  output_file <- paste0(main_path, "output//SAS_Results_Coverage_Analysis.xlsx")
+  output_file <- paste0(main_path, "output//SUDAAN_Results.xlsx")
   wb <- createWorkbook()
   
   # Add comprehensive summary first

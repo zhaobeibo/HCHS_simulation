@@ -6,7 +6,7 @@ library(tidyr)
 library(openxlsx)
 
 # Set file path
-main_path <- "C://Users//zhaob//OneDrive - University of North Carolina at Chapel Hill//CSCC//HCHS//V3_SIM//suddan//HCHS_simulation//"
+main_path <- "J://HCHS//STATISTICS//GRAS//Beibo//Computing Requests//HCHS_simulation//"
 file_path <- paste0(main_path, "output//alex//GENMOD - GEE Results.xlsx")
 
 # Read data
@@ -394,7 +394,7 @@ cat("=== Creating comprehensive summary ===\n")
 comprehensive_summary <- create_comprehensive_summary(summary_data)
 
 # Create Excel workbook with both detailed blocks and summary tables
-output_file <- paste0(main_path, "output//Complete_Coverage_Analysis_Results.xlsx")
+output_file <- paste0(main_path, "output//GENMOD_Results.xlsx")
 wb <- createWorkbook()
 
 # Add comprehensive summary first
@@ -464,154 +464,4 @@ cat("\n=== PREVIEW OF FIRST DETAILED BLOCK ===\n")
 if (length(excel_blocks) > 0) {
   cat("Block:", names(excel_blocks)[1], "\n")
   print(head(excel_blocks[[1]]))
-}# Load required libraries
-library(readxl)
-library(dplyr)
-library(stringr)
-library(tidyr)
-library(openxlsx)
-
-# Set file path
-main_path <- "C://Users//zhaob//OneDrive - University of North Carolina at Chapel Hill//CSCC//HCHS//V3_SIM//suddan//HCHS_simulation//"
-file_path <- paste0(main_path, "output//alex//GENMOD - GEE Results.xlsx")
-
-# Read data
-method_codes <- read_excel(file_path, sheet = "Method Codes")
-batch_output <- read_excel(file_path, sheet = "Batch Output")
-
-# Enhanced function to parse method specifications
-create_method_mapping <- function(method_codes) {
-  method_mapping <- method_codes %>%
-    select(suffix, Spec, corr, mitype) %>%
-    filter(!is.na(suffix) & !is.na(Spec)) %>%
-    mutate(
-      # Extract scenario number from Spec
-      scenario = str_extract(Spec, "^\\[(\\d+)\\]") %>% str_extract("\\d+") %>% as.numeric(),
-      
-      # Extract procedure type
-      proc_type = case_when(
-        str_detect(Spec, "PROC GENMOD") ~ "GENMOD",
-        str_detect(Spec, "PROC GEE") ~ "GEE",
-        TRUE ~ "UNKNOWN"
-      ),
-      
-      # Extract correlation structure  
-      correlation = case_when(
-        str_detect(Spec, "IND CORR") ~ "Independent",
-        str_detect(Spec, "EXCH CORR") ~ "Exchangeable", 
-        TRUE ~ "UNKNOWN"
-      ),
-      
-      # Extract missing data method
-      missing_method = case_when(
-        str_detect(Spec, "\\[MI\\]") ~ "MI",
-        str_detect(Spec, "\\[NO MI\\]") ~ "NO MI",
-        TRUE ~ "UNKNOWN"
-      ),
-      
-      # Extract weight method - keep all 5 categories separate
-      weight_method = case_when(
-        str_detect(Spec, "RR_glm_agestrat") ~ "RR_glm_agestrat_strat",
-        str_detect(Spec, "RR_glm_strat") ~ "RR_glm_strat",
-        str_detect(Spec, "RR_NRadj_strat") ~ "RR_NRadj_strat", 
-        str_detect(Spec, "RR_glm") ~ "RR_glm",
-        str_detect(Spec, "RR_NRadj") ~ "RR_NRadj",
-        TRUE ~ "UNKNOWN"
-      ),
-      
-      # Extract outcome type
-      outcome_type = case_when(
-        str_detect(Spec, "BINARY") ~ "Binary",
-        mitype == "bin" ~ "Binary",
-        mitype == "cont" ~ "Continuous",
-        TRUE ~ "Continuous"
-      ),
-      
-      # Extract visit restriction
-      visit_restriction = case_when(
-        str_detect(Spec, "NOMISS V3") ~ "V3_restricted",
-        str_detect(Spec, "bghhsub_s2_v3_nr") ~ "V3_restricted", 
-        str_detect(Spec, "bghhsub_s2_nr") ~ "visit_specific",
-        TRUE ~ "full_sample"
-      ),
-      
-      # Create scenario description
-      scenario_desc = case_when(
-        scenario == 1 ~ "MI + V1 Weight (Full Sample)",
-        scenario == 2 ~ "No MI + V1 Weight (Full Sample)", 
-        scenario == 3 ~ "MI + V3 Adjusted Weight (Restricted Sample)",
-        scenario == 4 ~ "No MI + V3 Adjusted Weight (Restricted Sample)",
-        scenario == 5 ~ "MI + Visit-specific Weights (Full Sample)",
-        scenario == 6 ~ "No MI + Visit-specific Weights (Full Sample)",
-        TRUE ~ paste("Scenario", scenario)
-      )
-    )
-  
-  return(method_mapping)
 }
-
-# Function to count coverage issues and create summary table
-create_summary_table <- function(batch_output, method_mapping) {
-  
-  # Join and calculate coverage issues
-  coverage_data <- batch_output %>%
-    left_join(method_mapping, by = "suffix", relationship = "many-to-many") %>%
-    filter(!is.na(scenario)) %>%
-    distinct(suffix, Parm, scenario, proc_type, correlation, missing_method, 
-             weight_method, outcome_type, visit_restriction, .keep_all = TRUE) %>%
-    mutate(
-      coverage_issue = ifelse(Coverage < lower_threshold | Coverage > upper_threshold, 1, 0)
-    )
-  
-  # Create summary for each scenario-weight combination
-  summary_data <- coverage_data %>%
-    group_by(scenario, scenario_desc, outcome_type, proc_type, correlation, 
-             weight_method, missing_method) %>%
-    summarise(
-      total_params = n(),
-      coverage_issues = sum(coverage_issue, na.rm = TRUE),
-      .groups = "drop"
-    )
-  
-  return(summary_data)
-}
-
-# Function to create a comprehensive summary table
-create_comprehensive_summary <- function(summary_data) {
-  
-  # Create a comprehensive table with all combinations
-  comprehensive <- summary_data %>%
-    select(scenario, scenario_desc, outcome_type, proc_type, correlation, 
-           weight_method, coverage_issues) %>%
-    # Create a combined identifier for the columns
-    unite("method_id", outcome_type, proc_type, correlation, weight_method, sep = "_") %>%
-    select(scenario, scenario_desc, method_id, coverage_issues) %>%
-    pivot_wider(
-      names_from = method_id,
-      values_from = coverage_issues,
-      values_fill = 0
-    ) %>%
-    arrange(scenario)
-  
-  return(comprehensive)
-}
-
-# Run the analysis functions
-cat("=== Creating method mapping ===\n")
-method_mapping <- create_method_mapping(method_codes)
-
-cat("=== Creating summary data ===\n")
-summary_data <- create_summary_table(batch_output, method_mapping)
-
-cat("=== Creating comprehensive summary ===\n")
-comprehensive_summary <- create_comprehensive_summary(summary_data)
-
-# Output just the Excel file with clean summary tables
-output_file <- paste0(main_path, "output//Clean_Coverage_Summary_Tables.xlsx")
-
-# Create Excel workbook with clean summary tables
-wb <- createWorkbook()
-
-# Add comprehensive summary first
-addWorksheet(wb, "All_Combinations")
-writeData(wb, "All_Combinations", comprehensive_summary)
