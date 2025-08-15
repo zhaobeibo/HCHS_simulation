@@ -117,16 +117,16 @@ proc printto log = "&homepath./logs/combine_&sysdate..log"
 
 
 * s3;
-%combine_con_betas(start=1, end=100, corr=ind, corr_full=independent, rr=_rr_glm_, 
+%combine_con_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_rr_glm_, 
                  input_lib=s3);
 
-%combine_con_betas(start=1, end=100,corr=ind, corr_full=independent, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=500,corr=ind, corr_full=independent, rr=_rr_nradj_, 
                  input_lib=s3);
 
-%combine_con_betas(start=1, end=100, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
                  input_lib=s3);
 
-%combine_con_betas(start=1, end=100, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
                  input_lib=s3);
 
 * s4;
@@ -141,6 +141,19 @@ proc printto log = "&homepath./logs/combine_&sysdate..log"
 
 %combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
                  input_lib=s4);
+
+* s5;
+%combine_con_betas(start=1, end=100, corr=ind, corr_full=independent, rr=_rr_glm_, 
+                 input_lib=s5);
+
+%combine_con_betas(start=1, end=100,corr=ind, corr_full=independent, rr=_rr_nradj_, 
+                 input_lib=s5);
+
+%combine_con_betas(start=1, end=100, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+                 input_lib=s5);
+
+%combine_con_betas(start=1, end=100, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+                 input_lib=s5);
 
 
  * s6;
