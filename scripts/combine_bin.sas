@@ -111,6 +111,16 @@ proc printto log = "&homepath./logs/combine_bin_&sysdate..log"
 %combine_bin_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
                  input_lib=bs4);
 
+* s5;
+%combine_bin_betas(start=1, end=100, corr=ind, corr_full=independent, rr=_rr_glm_, 
+                 input_lib=bs5);
+%combine_bin_betas(start=1, end=100, corr=ind, corr_full=independent, rr=_rr_nradj_, 
+                 input_lib=bs5);
+%combine_bin_betas(start=1, end=100, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+                 input_lib=bs5);;
+%combine_bin_betas(start=1, end=100, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+                 input_lib=bs5);
+
 
 * s6;
 %combine_bin_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_rr_glm_, 
