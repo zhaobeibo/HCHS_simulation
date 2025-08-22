@@ -161,11 +161,11 @@ run;
 %mend impute_sudaan;
 
 * miss_ind_mar;
-/*%impute_sudaan(start=383, end=383, corr=ind, corr_full=independent, rr=rr_glm, miss= miss_ind_mar);*/
-/*%impute_sudaan(start=404, end=404, corr=ind, corr_full=independent, rr=RR_NRadj, miss= miss_ind_mar);*/
+/*%impute_sudaan(start=501, end=1000, corr=ind, corr_full=independent, rr=rr_glm, miss= miss_ind_mar);*/
+/*%impute_sudaan(start=501, end=1000, corr=ind, corr_full=independent, rr=RR_NRadj, miss= miss_ind_mar);*/
 
-%impute_sudaan(start=151, end=500, corr=exch, corr_full=exchangeable, rr=rr_glm, miss= miss_ind_mar);
-%impute_sudaan(start=101, end=500, corr=exch, corr_full=exchangeable, rr=RR_NRadj, miss= miss_ind_mar);
+%impute_sudaan(start=501, end=1000, corr=exch, corr_full=exchangeable, rr=rr_glm, miss= miss_ind_mar);
+%impute_sudaan(start=501, end=1000, corr=exch, corr_full=exchangeable, rr=RR_NRadj, miss= miss_ind_mar);
 
 * miss_ind_mar_strat;
 /*%impute_sudaan(corr=ind, corr_full=independent, rr=rr_glm_strat, miss= miss_ind_mar_strat);*/
