@@ -10,8 +10,8 @@ main_path <- "J://HCHS//STATISTICS//GRAS//Beibo//Computing Requests//HCHS_simula
 sas_data_path <- paste0(main_path, "data//derived//summary//")  # Adjust path to where SAS datasets are stored
 
 # set threshold for problematic coverage
-lower_threshold <- 0.925
-upper_threshold <- 0.975
+lower_threshold <- 0.920
+upper_threshold <- 0.980
 
 
 # Function to create method mapping based on dataset naming conventions

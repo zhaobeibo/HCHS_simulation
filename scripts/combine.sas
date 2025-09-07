@@ -11,16 +11,50 @@ proc printto log = "&homepath./logs/combine_&sysdate..log"
         VERSION CONTROL:
                         - 24APR25: Initialize the code (AQA)
                         - Aug2025: Updated for consistency with R simulation framework (BZ)
+                        - Modified: Handle missing datasets from 1-1000, skip non-existent files
 *********************************************************************************************************;
 
 %macro combine_con_betas(start=, end=, corr=, corr_full = , rr=, 
                        input_lib=, pop_lib=dt_betas, output_lib=outpath);
 
-    /* Merge files containing beta estimates using sample data */
+    /* Create a temporary dataset to hold all existing files */
     data merge_betas;
-        set &input_lib..&corr.&rr.&start. - &input_lib..&corr.&rr.&end.;
-        if parm = 'intercept' then parm = 'Intercept';
+        /* Initialize empty dataset with correct structure */
+        length parm $20;
+        if 0; /* This creates structure but no observations */
     run;
+    
+    /* Counter for successful merges */
+    %let merge_count = 0;
+    
+    /* Loop through each file number and check if it exists */
+    %do i = &start %to &end;
+        /* Check if dataset exists using SASHELP.VTABLE or by attempting to open */
+        %if %sysfunc(exist(&input_lib..&corr.&rr.&i.)) %then %do;
+            /* Dataset exists, append it */
+            data merge_betas;
+                set merge_betas &input_lib..&corr.&rr.&i.;
+                if parm = 'intercept' then parm = 'Intercept';
+            run;
+            %let merge_count = %eval(&merge_count + 1);
+            %put NOTE: Successfully merged dataset &input_lib..&corr.&rr.&i. (File &merge_count);
+        %end;
+        %else %do;
+            %put WARNING: Dataset &input_lib..&corr.&rr.&i. does not exist - skipping;
+        %end;
+    %end;
+    
+    %put NOTE: Total datasets merged: &merge_count out of %eval(&end - &start + 1) possible files;
+    
+    /* Check if we have any data to process */
+    %let dsid = %sysfunc(open(merge_betas));
+    %let nobs = %sysfunc(attrn(&dsid, nobs));
+    %let rc = %sysfunc(close(&dsid));
+    
+    %if &nobs = 0 %then %do;
+        %put ERROR: No datasets found to merge for &input_lib..&corr.&rr. - exiting macro;
+        %return;
+    %end;
 
     /* Append the true value coming from population estimates */
     proc sql;
@@ -63,6 +97,8 @@ proc printto log = "&homepath./logs/combine_&sysdate..log"
     data output;
         set output_1;
         relse = estse/empse - 1;
+        /* Add information about number of files merged */
+        files_merged = &merge_count;
     run;
 
     /* Save output dataset */
@@ -70,103 +106,103 @@ proc printto log = "&homepath./logs/combine_&sysdate..log"
         set output;
     run;
 
+    /* Clean up temporary datasets */
+    proc datasets library=work nolist;
+        delete merge_betas betas_samp_pop betas_samp_pop_ output_1 output;
+    quit;
 
 %mend combine_con_betas;
 
 
-* s1;
-* Complete %combine_con_betas macro calls for all scenarios;
-
+* s1 - MI scenarios;
 * miss_ind_mar scenarios;
-%combine_con_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_rr_glm_, 
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_glm_, 
                  input_lib=s1);
 
-%combine_con_betas(start=1, end=500,corr=ind, corr_full=independent, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_nradj_, 
                  input_lib=s1);
 
-%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
                  input_lib=s1);
 
-%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
                  input_lib=s1);
 
 * miss_ind_mar_strat scenarios;
-/*%combine_con_betas(corr=ind, corr_full=independent, rr=_rr_glm_strat_, */
-/*                 input_lib=s1);*/
-/**/
-/*%combine_con_betas(corr=ind, corr_full=independent, rr=_rr_glm_agestrat_strat_, */
-/*                 input_lib=s1);*/
-/**/
-/*%combine_con_betas(corr=ind, corr_full=independent, rr=_rr_nradj_strat_, */
-/*                 input_lib=s1);*/
-/**/
-/*%combine_con_betas(corr=exch, corr_full=exchangeable, rr=_rr_glm_strat_, */
-/*                 input_lib=s1);*/
-/**/
-/*%combine_con_betas(corr=exch, corr_full=exchangeable, rr=_rr_glm_agestrat_strat_, */
-/*                 input_lib=s1);*/
-/**/
-/*%combine_con_betas(corr=exch, corr_full=exchangeable, rr=_rr_nradj_strat_, */
-/*                 input_lib=s1);*/
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_glm_strat_, 
+                 input_lib=s1);
 
-* s2;
-%combine_con_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_, 
-                       input_lib= s2 );
-%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable,  rr=_, 
-                       input_lib= s2 );
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_glm_agestrat_strat_, 
+                 input_lib=s1);
 
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_nradj_strat_, 
+                 input_lib=s1);
 
-* s3;
-%combine_con_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_rr_glm_, 
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_glm_strat_, 
+                 input_lib=s1);
+
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_glm_agestrat_strat_, 
+                 input_lib=s1);
+
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_nradj_strat_, 
+                 input_lib=s1);
+
+* s2 - Complete case scenarios;
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_, 
+                   input_lib=s2);
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_, 
+                   input_lib=s2);
+
+* s3 - MI with V3 adjusted weights (restricted sample);
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_glm_, 
                  input_lib=s3);
 
-%combine_con_betas(start=1, end=500,corr=ind, corr_full=independent, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_nradj_, 
                  input_lib=s3);
 
-%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
                  input_lib=s3);
 
-%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
                  input_lib=s3);
 
-* s4;
-%combine_con_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_rr_glm_, 
+* s4 - No MI with V3 adjusted weights (restricted sample);
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_glm_, 
                  input_lib=s4);
 
-%combine_con_betas(start=1, end=500,corr=ind, corr_full=independent, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_nradj_, 
                  input_lib=s4);
 
-%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
                  input_lib=s4);
 
-%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
                  input_lib=s4);
 
-* s5;
-%combine_con_betas(start=1, end=100, corr=ind, corr_full=independent, rr=_rr_glm_, 
+* s5 - MI with visit-specific weights (full sample);
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_glm_, 
                  input_lib=s5);
 
-%combine_con_betas(start=1, end=100,corr=ind, corr_full=independent, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_nradj_, 
                  input_lib=s5);
 
-%combine_con_betas(start=1, end=100, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
                  input_lib=s5);
 
-%combine_con_betas(start=1, end=100, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
                  input_lib=s5);
 
-
- * s6;
-%combine_con_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_rr_glm_, 
+* s6 - No MI with visit-specific weights (full sample);
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_glm_, 
                  input_lib=s6);
 
-%combine_con_betas(start=1, end=500,corr=ind, corr_full=independent, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=1000, corr=ind, corr_full=independent, rr=_rr_nradj_, 
                  input_lib=s6);
 
-%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_glm_, 
                  input_lib=s6);
 
-%combine_con_betas(start=1, end=500, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
+%combine_con_betas(start=1, end=1000, corr=exch, corr_full=exchangeable, rr=_rr_nradj_, 
                  input_lib=s6);
 
 proc printto; run;
