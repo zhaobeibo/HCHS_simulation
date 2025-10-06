@@ -16,8 +16,8 @@ batch_output <- read_excel(file_path, sheet = "Batch Output")
 # set threshold for problematic coverage
 # lower_threshold <- 0.9365
 # upper_threshold <- 0.9635
-lower_threshold <- 0.920
-upper_threshold <- 0.980
+lower_threshold <- 0.915
+upper_threshold <- 0.985
 
 # Enhanced function to parse method specifications - FINAL FIX
 create_method_mapping <- function(method_codes) {
