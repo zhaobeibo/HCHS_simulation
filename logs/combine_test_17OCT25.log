@@ -1,0 +1,1203 @@
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+483   
+484   **************************************************************************
+484 ! *******************************
+485   
+486           PROGRAM NAME: combine_sudaan.sas
+487           PROGRAMMER: Beibo Zhao (updated from AQA)
+488           DESCRIPTION: Combine results and calculate performance metrics for
+488 !  HCHS V3 simulation
+489           VERSION CONTROL:
+490                           - 24APR25: Initialize the code (AQA)
+491                           - Aug2025: Updated for consistency with R
+491 ! simulation framework (BZ)
+492                           - Modified: Handle missing datasets from 1-1000,
+492 ! skip non-existent files
+493   **************************************************************************
+493 ! *******************************;
+494   
+495   %macro combine_con_betas(start=, end=, corr=, corr_full = , rr=,
+496                          input_lib=, pop_lib=dt_betas, output_lib=outpath);
+497   
+498       /* Create a temporary dataset to hold all existing files */
+499       data merge_betas;
+500           /* Initialize empty dataset with correct structure */
+501           length parm $20;
+502           if 0; /* This creates structure but no observations */
+503       run;
+504   
+505       /* Counter for successful merges */
+506       %let merge_count = 0;
+507   
+508       /* Loop through each file number and check if it exists */
+509       %do i = &start %to &end;
+510           /* Check if dataset exists using SASHELP.VTABLE or by attempting
+510 ! to open */
+511           %if %sysfunc(exist(&input_lib..&corr.&rr.&i.)) %then %do;
+512               /* Dataset exists, append it */
+513               data merge_betas;
+514                   set merge_betas &input_lib..&corr.&rr.&i.;
+515                   if parm = 'intercept' then parm = 'Intercept';
+516               run;
+517               %let merge_count = %eval(&merge_count + 1);
+518               %put NOTE: Successfully merged dataset
+518 ! &input_lib..&corr.&rr.&i. (File &merge_count);
+519           %end;
+520           %else %do;
+521               %put WARNING: Dataset &input_lib..&corr.&rr.&i. does not exist
+521 !  - skipping;
+522           %end;
+523       %end;
+524   
+525       %put NOTE: Total datasets merged: &merge_count out of %eval(&end -
+525 ! &start + 1) possible files;
+526   
+527       /* Check if we have any data to process */
+528       %let dsid = %sysfunc(open(merge_betas));
+529       %let nobs = %sysfunc(attrn(&dsid, nobs));
+530       %let rc = %sysfunc(close(&dsid));
+531   
+532       %if &nobs = 0 %then %do;
+533           %put ERROR: No datasets found to merge for &input_lib..&corr.&rr.
+533 ! - exiting macro;
+534           %return;
+535       %end;
+536   
+537       /* Append the true value coming from population estimates */
+538       proc sql;
+539           create table betas_samp_pop as
+540           select a.*, b.estimate as true
+541           from merge_betas as a
+542           right join
+543           &pop_lib..betas_pop_&corr. as b
+544           on a.parm=b.parm;
+545       quit;
+546   
+547       /* Compute 95% confidence intervals */
+548       data betas_samp_pop;
+549           set betas_samp_pop;
+550           uppercl = Estimate + 1.975 * Stderr;
+551           lowercl = Estimate - 1.975 * Stderr;
+552       run;
+553   
+554       /* Estimate quantities of interest: bias, ... */
+555       data betas_samp_pop_;
+556           set betas_samp_pop;
+557           /* Calculate statistics to summarize */
+558           inci = (uppercl >= true & lowercl <= true);
+559           bias = estimate - true;
+560           relbias = bias / true;
+561           /* PROBT */
+562           rejecth0 = (abs(t) > quantile('NORMAL',.975));
+563       run;
+564   
+565       /* Calculate summary statistics */
+566       proc means data=betas_samp_pop_ noprint nway;
+567           class parm;
+568           var true estimate bias relbias stderr inci rejecth0;
+569           output out=output_1 mean(true estimate bias relbias stderr inci
+570                   rejecth0)=true estimate empbias relbias estse coverage
+571                   prejecth0 std(estimate)=empse;
+572       run;
+573   
+574       /* Final calculations */
+575       data output;
+576           set output_1;
+577           relse = estse/empse - 1;
+578           /* Add information about number of files merged */
+579           files_merged = &merge_count;
+580       run;
+581   
+582       /* Save output dataset */
+583       data &output_lib..&input_lib._&corr.&rr.;
+584           set output;
+585       run;
+586   
+587       /* Clean up temporary datasets */
+588       proc datasets library=work nolist;
+589           delete merge_betas betas_samp_pop betas_samp_pop_ output_1 output;
+590       quit;
+591   
+592   %mend combine_con_betas;
+593   
+594   
+595   * s1 - MI scenarios;
+596   * miss_ind_mar scenarios;
+597   %combine_con_betas(start=1, end=100, corr=ind, corr_full=independent,
+597 ! rr=_double_rr_,
+598                    input_lib=test1);
+
+NOTE: Variable parm is uninitialized.
+NOTE: The data set WORK.MERGE_BETAS has 0 observations and 1 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_1.
+NOTE: The data set WORK.MERGE_BETAS has 7 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_1 (File 1)
+
+NOTE: There were 7 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_2.
+NOTE: The data set WORK.MERGE_BETAS has 14 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_2 (File 2)
+
+NOTE: There were 14 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_3.
+NOTE: The data set WORK.MERGE_BETAS has 21 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_3 (File 3)
+
+NOTE: There were 21 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_4.
+NOTE: The data set WORK.MERGE_BETAS has 28 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_4 (File 4)
+
+NOTE: There were 28 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_5.
+NOTE: The data set WORK.MERGE_BETAS has 35 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_5 (File 5)
+
+NOTE: There were 35 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_6.
+NOTE: The data set WORK.MERGE_BETAS has 42 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_6 (File 6)
+
+NOTE: There were 42 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_7.
+NOTE: The data set WORK.MERGE_BETAS has 49 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_7 (File 7)
+
+NOTE: There were 49 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_8.
+NOTE: The data set WORK.MERGE_BETAS has 56 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_8 (File 8)
+
+NOTE: There were 56 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_9.
+NOTE: The data set WORK.MERGE_BETAS has 63 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_9 (File 9)
+
+NOTE: There were 63 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_10.
+NOTE: The data set WORK.MERGE_BETAS has 70 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_10 (File 10)
+
+NOTE: There were 70 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_11.
+NOTE: The data set WORK.MERGE_BETAS has 77 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.12 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_11 (File 11)
+
+NOTE: There were 77 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_12.
+NOTE: The data set WORK.MERGE_BETAS has 84 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_12 (File 12)
+
+NOTE: There were 84 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_13.
+NOTE: The data set WORK.MERGE_BETAS has 91 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_13 (File 13)
+
+NOTE: There were 91 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_14.
+NOTE: The data set WORK.MERGE_BETAS has 98 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_14 (File 14)
+
+NOTE: There were 98 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_15.
+NOTE: The data set WORK.MERGE_BETAS has 105 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_15 (File 15)
+
+NOTE: There were 105 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_16.
+NOTE: The data set WORK.MERGE_BETAS has 112 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_16 (File 16)
+
+NOTE: There were 112 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_17.
+NOTE: The data set WORK.MERGE_BETAS has 119 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.07 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_17 (File 17)
+
+NOTE: There were 119 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_18.
+NOTE: The data set WORK.MERGE_BETAS has 126 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_18 (File 18)
+
+NOTE: There were 126 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_19.
+NOTE: The data set WORK.MERGE_BETAS has 133 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_19 (File 19)
+
+NOTE: There were 133 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_20.
+NOTE: The data set WORK.MERGE_BETAS has 140 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_20 (File 20)
+
+NOTE: There were 140 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_21.
+NOTE: The data set WORK.MERGE_BETAS has 147 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_21 (File 21)
+
+NOTE: There were 147 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_22.
+NOTE: The data set WORK.MERGE_BETAS has 154 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_22 (File 22)
+
+NOTE: There were 154 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_23.
+NOTE: The data set WORK.MERGE_BETAS has 161 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_23 (File 23)
+
+NOTE: There were 161 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_24.
+NOTE: The data set WORK.MERGE_BETAS has 168 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_24 (File 24)
+
+NOTE: There were 168 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_25.
+NOTE: The data set WORK.MERGE_BETAS has 175 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_25 (File 25)
+
+NOTE: There were 175 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_26.
+NOTE: The data set WORK.MERGE_BETAS has 182 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_26 (File 26)
+
+NOTE: There were 182 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_27.
+NOTE: The data set WORK.MERGE_BETAS has 189 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_27 (File 27)
+
+NOTE: There were 189 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_28.
+NOTE: The data set WORK.MERGE_BETAS has 196 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_28 (File 28)
+
+NOTE: There were 196 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_29.
+NOTE: The data set WORK.MERGE_BETAS has 203 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_29 (File 29)
+
+NOTE: There were 203 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_30.
+NOTE: The data set WORK.MERGE_BETAS has 210 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.09 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_30 (File 30)
+
+NOTE: There were 210 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_31.
+NOTE: The data set WORK.MERGE_BETAS has 217 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_31 (File 31)
+
+NOTE: There were 217 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_32.
+NOTE: The data set WORK.MERGE_BETAS has 224 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_32 (File 32)
+
+NOTE: There were 224 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_33.
+NOTE: The data set WORK.MERGE_BETAS has 231 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_33 (File 33)
+
+NOTE: There were 231 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_34.
+NOTE: The data set WORK.MERGE_BETAS has 238 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_34 (File 34)
+
+NOTE: There were 238 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_35.
+NOTE: The data set WORK.MERGE_BETAS has 245 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_35 (File 35)
+
+NOTE: There were 245 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_36.
+NOTE: The data set WORK.MERGE_BETAS has 252 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_36 (File 36)
+
+NOTE: There were 252 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_37.
+NOTE: The data set WORK.MERGE_BETAS has 259 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.07 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_37 (File 37)
+
+NOTE: There were 259 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_38.
+NOTE: The data set WORK.MERGE_BETAS has 266 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_38 (File 38)
+
+NOTE: There were 266 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_39.
+NOTE: The data set WORK.MERGE_BETAS has 273 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_39 (File 39)
+
+NOTE: There were 273 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_40.
+NOTE: The data set WORK.MERGE_BETAS has 280 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_40 (File 40)
+
+NOTE: There were 280 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_41.
+NOTE: The data set WORK.MERGE_BETAS has 287 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_41 (File 41)
+
+NOTE: There were 287 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_42.
+NOTE: The data set WORK.MERGE_BETAS has 294 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_42 (File 42)
+
+NOTE: There were 294 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_43.
+NOTE: The data set WORK.MERGE_BETAS has 301 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_43 (File 43)
+
+NOTE: There were 301 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_44.
+NOTE: The data set WORK.MERGE_BETAS has 308 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_44 (File 44)
+
+NOTE: There were 308 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_45.
+NOTE: The data set WORK.MERGE_BETAS has 315 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_45 (File 45)
+
+NOTE: There were 315 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_46.
+NOTE: The data set WORK.MERGE_BETAS has 322 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.09 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_46 (File 46)
+
+NOTE: There were 322 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_47.
+NOTE: The data set WORK.MERGE_BETAS has 329 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_47 (File 47)
+
+NOTE: There were 329 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_48.
+NOTE: The data set WORK.MERGE_BETAS has 336 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_48 (File 48)
+
+NOTE: There were 336 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_49.
+NOTE: The data set WORK.MERGE_BETAS has 343 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_49 (File 49)
+
+NOTE: There were 343 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_50.
+NOTE: The data set WORK.MERGE_BETAS has 350 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_50 (File 50)
+
+NOTE: There were 350 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_51.
+NOTE: The data set WORK.MERGE_BETAS has 357 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.07 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_51 (File 51)
+
+NOTE: There were 357 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_52.
+NOTE: The data set WORK.MERGE_BETAS has 364 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.11 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_52 (File 52)
+
+NOTE: There were 364 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_53.
+NOTE: The data set WORK.MERGE_BETAS has 371 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_53 (File 53)
+
+NOTE: There were 371 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_54.
+NOTE: The data set WORK.MERGE_BETAS has 378 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_54 (File 54)
+
+NOTE: There were 378 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_55.
+NOTE: The data set WORK.MERGE_BETAS has 385 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_55 (File 55)
+
+NOTE: There were 385 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_56.
+NOTE: The data set WORK.MERGE_BETAS has 392 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.20 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_56 (File 56)
+
+NOTE: There were 392 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_57.
+NOTE: The data set WORK.MERGE_BETAS has 399 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_57 (File 57)
+
+NOTE: There were 399 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_58.
+NOTE: The data set WORK.MERGE_BETAS has 406 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_58 (File 58)
+
+NOTE: There were 406 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_59.
+NOTE: The data set WORK.MERGE_BETAS has 413 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_59 (File 59)
+
+NOTE: There were 413 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_60.
+NOTE: The data set WORK.MERGE_BETAS has 420 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_60 (File 60)
+
+NOTE: There were 420 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_61.
+NOTE: The data set WORK.MERGE_BETAS has 427 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_61 (File 61)
+
+NOTE: There were 427 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_62.
+NOTE: The data set WORK.MERGE_BETAS has 434 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.13 seconds
+      cpu time            0.04 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_62 (File 62)
+
+NOTE: There were 434 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_63.
+NOTE: The data set WORK.MERGE_BETAS has 441 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_63 (File 63)
+
+NOTE: There were 441 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_64.
+NOTE: The data set WORK.MERGE_BETAS has 448 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_64 (File 64)
+
+NOTE: There were 448 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_65.
+NOTE: The data set WORK.MERGE_BETAS has 455 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_65 (File 65)
+
+NOTE: There were 455 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_66.
+NOTE: The data set WORK.MERGE_BETAS has 462 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_66 (File 66)
+
+NOTE: There were 462 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_67.
+NOTE: The data set WORK.MERGE_BETAS has 469 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_67 (File 67)
+
+NOTE: There were 469 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_68.
+NOTE: The data set WORK.MERGE_BETAS has 476 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_68 (File 68)
+
+NOTE: There were 476 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_69.
+NOTE: The data set WORK.MERGE_BETAS has 483 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_69 (File 69)
+
+NOTE: There were 483 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_70.
+NOTE: The data set WORK.MERGE_BETAS has 490 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_70 (File 70)
+
+NOTE: There were 490 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_71.
+NOTE: The data set WORK.MERGE_BETAS has 497 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_71 (File 71)
+
+NOTE: There were 497 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_72.
+NOTE: The data set WORK.MERGE_BETAS has 504 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_72 (File 72)
+
+NOTE: There were 504 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_73.
+NOTE: The data set WORK.MERGE_BETAS has 511 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_73 (File 73)
+
+NOTE: There were 511 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_74.
+NOTE: The data set WORK.MERGE_BETAS has 518 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_74 (File 74)
+
+NOTE: There were 518 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_75.
+NOTE: The data set WORK.MERGE_BETAS has 525 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.08 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_75 (File 75)
+
+NOTE: There were 525 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_76.
+NOTE: The data set WORK.MERGE_BETAS has 532 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_76 (File 76)
+
+NOTE: There were 532 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_77.
+NOTE: The data set WORK.MERGE_BETAS has 539 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_77 (File 77)
+
+NOTE: There were 539 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_78.
+NOTE: The data set WORK.MERGE_BETAS has 546 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_78 (File 78)
+
+NOTE: There were 546 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_79.
+NOTE: The data set WORK.MERGE_BETAS has 553 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_79 (File 79)
+
+NOTE: There were 553 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_80.
+NOTE: The data set WORK.MERGE_BETAS has 560 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_80 (File 80)
+
+NOTE: There were 560 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_81.
+NOTE: The data set WORK.MERGE_BETAS has 567 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.07 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_81 (File 81)
+
+NOTE: There were 567 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_82.
+NOTE: The data set WORK.MERGE_BETAS has 574 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.07 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_82 (File 82)
+
+NOTE: There were 574 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_83.
+NOTE: The data set WORK.MERGE_BETAS has 581 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_83 (File 83)
+
+NOTE: There were 581 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_84.
+NOTE: The data set WORK.MERGE_BETAS has 588 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_84 (File 84)
+
+NOTE: There were 588 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_85.
+NOTE: The data set WORK.MERGE_BETAS has 595 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_85 (File 85)
+
+NOTE: There were 595 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_86.
+NOTE: The data set WORK.MERGE_BETAS has 602 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.04 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_86 (File 86)
+
+NOTE: There were 602 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_87.
+NOTE: The data set WORK.MERGE_BETAS has 609 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_87 (File 87)
+
+NOTE: There were 609 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_88.
+NOTE: The data set WORK.MERGE_BETAS has 616 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_88 (File 88)
+
+NOTE: There were 616 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_89.
+NOTE: The data set WORK.MERGE_BETAS has 623 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_89 (File 89)
+
+NOTE: There were 623 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_90.
+NOTE: The data set WORK.MERGE_BETAS has 630 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_90 (File 90)
+
+NOTE: There were 630 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_91.
+NOTE: The data set WORK.MERGE_BETAS has 637 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_91 (File 91)
+
+NOTE: There were 637 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_92.
+NOTE: The data set WORK.MERGE_BETAS has 644 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_92 (File 92)
+
+NOTE: There were 644 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_93.
+NOTE: The data set WORK.MERGE_BETAS has 651 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.07 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_93 (File 93)
+
+NOTE: There were 651 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_94.
+NOTE: The data set WORK.MERGE_BETAS has 658 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.09 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_94 (File 94)
+
+NOTE: There were 658 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_95.
+NOTE: The data set WORK.MERGE_BETAS has 665 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_95 (File 95)
+
+NOTE: There were 665 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_96.
+NOTE: The data set WORK.MERGE_BETAS has 672 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_96 (File 96)
+
+NOTE: There were 672 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_97.
+NOTE: The data set WORK.MERGE_BETAS has 679 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_97 (File 97)
+
+NOTE: There were 679 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_98.
+NOTE: The data set WORK.MERGE_BETAS has 686 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_98 (File 98)
+
+NOTE: There were 686 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_99.
+NOTE: The data set WORK.MERGE_BETAS has 693 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.09 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_99 (File 99)
+
+NOTE: There were 693 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST1.IND_DOUBLE_RR_100.
+NOTE: The data set WORK.MERGE_BETAS has 700 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test1.ind_double_rr_100 (File 100)
+NOTE: Total datasets merged: 100 out of 100 possible files
+NOTE: Table WORK.BETAS_SAMP_POP created, with 700 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.14 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 700 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_ has 700 observations and 12 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.23 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set WORK.BETAS_SAMP_POP_.
+NOTE: The data set WORK.OUTPUT_1 has 7 observations and 11 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT_1.
+NOTE: The data set WORK.OUTPUT has 7 observations and 13 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT.
+NOTE: The data set OUTPATH.TEST1_IND_DOUBLE_RR_ has 7 observations and 13 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.80 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: Deleting WORK.MERGE_BETAS (memtype=DATA).
+NOTE: Deleting WORK.BETAS_SAMP_POP (memtype=DATA).
+NOTE: Deleting WORK.BETAS_SAMP_POP_ (memtype=DATA).
+NOTE: Deleting WORK.OUTPUT_1 (memtype=DATA).
+NOTE: Deleting WORK.OUTPUT (memtype=DATA).
+NOTE: PROCEDURE DATASETS used (Total process time):
+      real time           0.07 seconds
+      cpu time            0.01 seconds
+      
+
+599   
+600   proc printto; run;
+

@@ -24,6 +24,9 @@ libname bs3 "&homepath./data/derived/betas/bin/s3";
 libname bs4 "&homepath./data/derived/betas/bin/s4";
 libname bs5 "&homepath./data/derived/betas/bin/s5";
 libname bs6 "&homepath./data/derived/betas/bin/s6";
+
+libname test1 "&homepath./data/derived/betas/test1";
+libname test2 "&homepath./data/derived/betas/test2";
 /*libname betas_b "&homepath./data/derived/betas/bin";*/
 libname output "&output.";
 libname outpath "&outpath.";
