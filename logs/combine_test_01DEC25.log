@@ -1,0 +1,2309 @@
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           0.14 seconds
+      cpu time            0.01 seconds
+      
+
+512    
+513    *************************************************************************
+513  ! ********************************
+514    
+515            PROGRAM NAME: combine_sudaan.sas
+516            PROGRAMMER: Beibo Zhao (updated from AQA)
+517            DESCRIPTION: Combine results and calculate performance metrics
+517  ! for HCHS V3 simulation
+518            VERSION CONTROL:
+519                            - 24APR25: Initialize the code (AQA)
+520                            - Aug2025: Updated for consistency with R
+520  ! simulation framework (BZ)
+521                            - Modified: Handle missing datasets from 1-1000,
+521  ! skip non-existent files
+522    *************************************************************************
+522  ! ********************************;
+523    
+524    %macro combine_con_betas(start=, end=, corr=, corr_full = , rr=,
+525                           input_lib=, pop_lib=dt_betas, output_lib=outpath);
+526    
+527        /* Create a temporary dataset to hold all existing files */
+528        data merge_betas;
+529            /* Initialize empty dataset with correct structure */
+530            length parm $20;
+531            if 0; /* This creates structure but no observations */
+532        run;
+533    
+534        /* Counter for successful merges */
+535        %let merge_count = 0;
+536    
+537        /* Loop through each file number and check if it exists */
+538        %do i = &start %to &end;
+539            /* Check if dataset exists using SASHELP.VTABLE or by attempting
+539  ! to open */
+540            %if %sysfunc(exist(&input_lib..&corr.&rr.&i.)) %then %do;
+541                /* Dataset exists, append it */
+542                data merge_betas;
+543                    set merge_betas &input_lib..&corr.&rr.&i.;
+544                    if parm = 'intercept' then parm = 'Intercept';
+545                run;
+546                %let merge_count = %eval(&merge_count + 1);
+547                %put NOTE: Successfully merged dataset
+547  ! &input_lib..&corr.&rr.&i. (File &merge_count);
+548            %end;
+549            %else %do;
+550                %put WARNING: Dataset &input_lib..&corr.&rr.&i. does not
+550  ! exist - skipping;
+551            %end;
+552        %end;
+553    
+554        %put NOTE: Total datasets merged: &merge_count out of %eval(&end -
+554  ! &start + 1) possible files;
+555    
+556        /* Check if we have any data to process */
+557        %let dsid = %sysfunc(open(merge_betas));
+558        %let nobs = %sysfunc(attrn(&dsid, nobs));
+559        %let rc = %sysfunc(close(&dsid));
+560    
+561        %if &nobs = 0 %then %do;
+562            %put ERROR: No datasets found to merge for &input_lib..&corr.&rr.
+562  !  - exiting macro;
+563            %return;
+564        %end;
+565    
+566        /* Append the true value coming from population estimates */
+567        proc sql;
+568            create table betas_samp_pop as
+569            select a.*, b.estimate as true
+570            from merge_betas as a
+571            right join
+572            &pop_lib..betas_pop_&corr. as b
+573            on a.parm=b.parm;
+574        quit;
+575    
+576        /* Compute 95% confidence intervals */
+577        data betas_samp_pop;
+578            set betas_samp_pop;
+579            uppercl = Estimate + 1.975 * Stderr;
+580            lowercl = Estimate - 1.975 * Stderr;
+581        run;
+582    
+583        /* Estimate quantities of interest: bias, ... */
+584        data betas_samp_pop_;
+585            set betas_samp_pop;
+586            /* Calculate statistics to summarize */
+587            inci = (uppercl >= true & lowercl <= true);
+588            bias = estimate - true;
+589            relbias = bias / true;
+590            /* PROBT */
+591            rejecth0 = (abs(t) > quantile('NORMAL',.975));
+592        run;
+593    
+594        /* Calculate summary statistics */
+595        proc means data=betas_samp_pop_ noprint nway;
+596            class parm;
+597            var true estimate bias relbias stderr inci rejecth0;
+598            output out=output_1 mean(true estimate bias relbias stderr inci
+599                    rejecth0)=true estimate empbias relbias estse coverage
+600                    prejecth0 std(estimate)=empse;
+601        run;
+602    
+603        /* Final calculations */
+604        data output;
+605            set output_1;
+606            relse = estse/empse - 1;
+607            /* Add information about number of files merged */
+608            files_merged = &merge_count;
+609        run;
+610    
+611        /* Save output dataset */
+612        data &output_lib..&input_lib._&corr.&rr.;
+613            set output;
+614        run;
+615    
+616        /* Clean up temporary datasets */
+617        proc datasets library=work nolist;
+618            delete merge_betas betas_samp_pop betas_samp_pop_ output_1 output
+618  ! ;
+619        quit;
+620    
+621    %mend combine_con_betas;
+622    
+623    
+624    * s1 - MI scenarios;
+625    * miss_ind_mar scenarios;
+626    /*%combine_con_betas(start=1, end=100, corr=ind, corr_full=independent,
+626  ! rr=_double_rr_, */
+627    /*                 input_lib=test1);*/
+628    
+629    %combine_con_betas(start=1, end=200, corr=ind, corr_full=independent,
+629  ! rr=_rr_glm_mask_,
+630                     input_lib=test2);
+
+NOTE: Variable parm is uninitialized.
+NOTE: The data set WORK.MERGE_BETAS has 0 observations and 1 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_1.
+NOTE: The data set WORK.MERGE_BETAS has 7 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_1 (File 1)
+
+NOTE: There were 7 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_2.
+NOTE: The data set WORK.MERGE_BETAS has 14 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.08 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_2 (File 2)
+
+NOTE: There were 14 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_3.
+NOTE: The data set WORK.MERGE_BETAS has 21 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_3 (File 3)
+
+NOTE: There were 21 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_4.
+NOTE: The data set WORK.MERGE_BETAS has 28 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_4 (File 4)
+
+NOTE: There were 28 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_5.
+NOTE: The data set WORK.MERGE_BETAS has 35 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.16 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_5 (File 5)
+
+NOTE: There were 35 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_6.
+NOTE: The data set WORK.MERGE_BETAS has 42 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_6 (File 6)
+
+NOTE: There were 42 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_7.
+NOTE: The data set WORK.MERGE_BETAS has 49 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.11 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_7 (File 7)
+
+NOTE: There were 49 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_8.
+NOTE: The data set WORK.MERGE_BETAS has 56 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_8 (File 8)
+
+NOTE: There were 56 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_9.
+NOTE: The data set WORK.MERGE_BETAS has 63 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_9 (File 9)
+
+NOTE: There were 63 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_10.
+NOTE: The data set WORK.MERGE_BETAS has 70 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_10 (File 10)
+
+NOTE: There were 70 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_11.
+NOTE: The data set WORK.MERGE_BETAS has 77 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_11 (File 11)
+
+NOTE: There were 77 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_12.
+NOTE: The data set WORK.MERGE_BETAS has 84 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_12 (File 12)
+
+NOTE: There were 84 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_13.
+NOTE: The data set WORK.MERGE_BETAS has 91 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_13 (File 13)
+
+NOTE: There were 91 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_14.
+NOTE: The data set WORK.MERGE_BETAS has 98 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_14 (File 14)
+
+NOTE: There were 98 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_15.
+NOTE: The data set WORK.MERGE_BETAS has 105 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_15 (File 15)
+
+NOTE: There were 105 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_16.
+NOTE: The data set WORK.MERGE_BETAS has 112 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_16 (File 16)
+
+NOTE: There were 112 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_17.
+NOTE: The data set WORK.MERGE_BETAS has 119 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.18 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_17 (File 17)
+
+NOTE: There were 119 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_18.
+NOTE: The data set WORK.MERGE_BETAS has 126 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_18 (File 18)
+
+NOTE: There were 126 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_19.
+NOTE: The data set WORK.MERGE_BETAS has 133 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_19 (File 19)
+
+NOTE: There were 133 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_20.
+NOTE: The data set WORK.MERGE_BETAS has 140 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_20 (File 20)
+
+NOTE: There were 140 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_21.
+NOTE: The data set WORK.MERGE_BETAS has 147 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_21 (File 21)
+
+NOTE: There were 147 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_22.
+NOTE: The data set WORK.MERGE_BETAS has 154 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_22 (File 22)
+
+NOTE: There were 154 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_23.
+NOTE: The data set WORK.MERGE_BETAS has 161 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.09 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_23 (File 23)
+
+NOTE: There were 161 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_24.
+NOTE: The data set WORK.MERGE_BETAS has 168 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_24 (File 24)
+
+NOTE: There were 168 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_25.
+NOTE: The data set WORK.MERGE_BETAS has 175 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_25 (File 25)
+
+NOTE: There were 175 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_26.
+NOTE: The data set WORK.MERGE_BETAS has 182 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_26 (File 26)
+
+NOTE: There were 182 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_27.
+NOTE: The data set WORK.MERGE_BETAS has 189 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_27 (File 27)
+
+NOTE: There were 189 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_28.
+NOTE: The data set WORK.MERGE_BETAS has 196 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.14 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_28 (File 28)
+
+NOTE: There were 196 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_29.
+NOTE: The data set WORK.MERGE_BETAS has 203 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_29 (File 29)
+
+NOTE: There were 203 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_30.
+NOTE: The data set WORK.MERGE_BETAS has 210 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_30 (File 30)
+
+NOTE: There were 210 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_31.
+NOTE: The data set WORK.MERGE_BETAS has 217 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.23 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_31 (File 31)
+
+NOTE: There were 217 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_32.
+NOTE: The data set WORK.MERGE_BETAS has 224 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.31 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_32 (File 32)
+
+NOTE: There were 224 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_33.
+NOTE: The data set WORK.MERGE_BETAS has 231 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_33 (File 33)
+
+NOTE: There were 231 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_34.
+NOTE: The data set WORK.MERGE_BETAS has 238 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.08 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_34 (File 34)
+
+NOTE: There were 238 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_35.
+NOTE: The data set WORK.MERGE_BETAS has 245 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_35 (File 35)
+
+NOTE: There were 245 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_36.
+NOTE: The data set WORK.MERGE_BETAS has 252 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_36 (File 36)
+
+NOTE: There were 252 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_37.
+NOTE: The data set WORK.MERGE_BETAS has 259 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_37 (File 37)
+
+NOTE: There were 259 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_38.
+NOTE: The data set WORK.MERGE_BETAS has 266 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_38 (File 38)
+
+NOTE: There were 266 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_39.
+NOTE: The data set WORK.MERGE_BETAS has 273 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_39 (File 39)
+
+NOTE: There were 273 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_40.
+NOTE: The data set WORK.MERGE_BETAS has 280 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_40 (File 40)
+
+NOTE: There were 280 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_41.
+NOTE: The data set WORK.MERGE_BETAS has 287 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_41 (File 41)
+
+NOTE: There were 287 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_42.
+NOTE: The data set WORK.MERGE_BETAS has 294 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_42 (File 42)
+
+NOTE: There were 294 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_43.
+NOTE: The data set WORK.MERGE_BETAS has 301 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_43 (File 43)
+
+NOTE: There were 301 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_44.
+NOTE: The data set WORK.MERGE_BETAS has 308 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_44 (File 44)
+
+NOTE: There were 308 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_45.
+NOTE: The data set WORK.MERGE_BETAS has 315 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_45 (File 45)
+
+NOTE: There were 315 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_46.
+NOTE: The data set WORK.MERGE_BETAS has 322 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_46 (File 46)
+
+NOTE: There were 322 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_47.
+NOTE: The data set WORK.MERGE_BETAS has 329 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_47 (File 47)
+
+NOTE: There were 329 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_48.
+NOTE: The data set WORK.MERGE_BETAS has 336 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_48 (File 48)
+
+NOTE: There were 336 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_49.
+NOTE: The data set WORK.MERGE_BETAS has 343 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_49 (File 49)
+
+NOTE: There were 343 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_50.
+NOTE: The data set WORK.MERGE_BETAS has 350 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_50 (File 50)
+
+NOTE: There were 350 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_51.
+NOTE: The data set WORK.MERGE_BETAS has 357 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_51 (File 51)
+
+NOTE: There were 357 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_52.
+NOTE: The data set WORK.MERGE_BETAS has 364 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_52 (File 52)
+
+NOTE: There were 364 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_53.
+NOTE: The data set WORK.MERGE_BETAS has 371 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_53 (File 53)
+
+NOTE: There were 371 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_54.
+NOTE: The data set WORK.MERGE_BETAS has 378 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_54 (File 54)
+
+NOTE: There were 378 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_55.
+NOTE: The data set WORK.MERGE_BETAS has 385 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_55 (File 55)
+
+NOTE: There were 385 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_56.
+NOTE: The data set WORK.MERGE_BETAS has 392 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_56 (File 56)
+
+NOTE: There were 392 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_57.
+NOTE: The data set WORK.MERGE_BETAS has 399 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_57 (File 57)
+
+NOTE: There were 399 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_58.
+NOTE: The data set WORK.MERGE_BETAS has 406 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_58 (File 58)
+
+NOTE: There were 406 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_59.
+NOTE: The data set WORK.MERGE_BETAS has 413 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_59 (File 59)
+
+NOTE: There were 413 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_60.
+NOTE: The data set WORK.MERGE_BETAS has 420 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_60 (File 60)
+
+NOTE: There were 420 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_61.
+NOTE: The data set WORK.MERGE_BETAS has 427 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_61 (File 61)
+
+NOTE: There were 427 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_62.
+NOTE: The data set WORK.MERGE_BETAS has 434 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_62 (File 62)
+
+NOTE: There were 434 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_63.
+NOTE: The data set WORK.MERGE_BETAS has 441 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_63 (File 63)
+
+NOTE: There were 441 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_64.
+NOTE: The data set WORK.MERGE_BETAS has 448 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_64 (File 64)
+
+NOTE: There were 448 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_65.
+NOTE: The data set WORK.MERGE_BETAS has 455 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_65 (File 65)
+
+NOTE: There were 455 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_66.
+NOTE: The data set WORK.MERGE_BETAS has 462 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_66 (File 66)
+
+NOTE: There were 462 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_67.
+NOTE: The data set WORK.MERGE_BETAS has 469 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_67 (File 67)
+
+NOTE: There were 469 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_68.
+NOTE: The data set WORK.MERGE_BETAS has 476 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_68 (File 68)
+
+NOTE: There were 476 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_69.
+NOTE: The data set WORK.MERGE_BETAS has 483 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_69 (File 69)
+
+NOTE: There were 483 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_70.
+NOTE: The data set WORK.MERGE_BETAS has 490 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_70 (File 70)
+
+NOTE: There were 490 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_71.
+NOTE: The data set WORK.MERGE_BETAS has 497 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_71 (File 71)
+
+NOTE: There were 497 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_72.
+NOTE: The data set WORK.MERGE_BETAS has 504 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_72 (File 72)
+
+NOTE: There were 504 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_73.
+NOTE: The data set WORK.MERGE_BETAS has 511 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_73 (File 73)
+
+NOTE: There were 511 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_74.
+NOTE: The data set WORK.MERGE_BETAS has 518 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_74 (File 74)
+
+NOTE: There were 518 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_75.
+NOTE: The data set WORK.MERGE_BETAS has 525 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_75 (File 75)
+
+NOTE: There were 525 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_76.
+NOTE: The data set WORK.MERGE_BETAS has 532 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_76 (File 76)
+
+NOTE: There were 532 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_77.
+NOTE: The data set WORK.MERGE_BETAS has 539 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_77 (File 77)
+
+NOTE: There were 539 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_78.
+NOTE: The data set WORK.MERGE_BETAS has 546 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_78 (File 78)
+
+NOTE: There were 546 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_79.
+NOTE: The data set WORK.MERGE_BETAS has 553 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_79 (File 79)
+
+NOTE: There were 553 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_80.
+NOTE: The data set WORK.MERGE_BETAS has 560 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_80 (File 80)
+
+NOTE: There were 560 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_81.
+NOTE: The data set WORK.MERGE_BETAS has 567 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_81 (File 81)
+
+NOTE: There were 567 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_82.
+NOTE: The data set WORK.MERGE_BETAS has 574 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_82 (File 82)
+
+NOTE: There were 574 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_83.
+NOTE: The data set WORK.MERGE_BETAS has 581 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_83 (File 83)
+
+NOTE: There were 581 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_84.
+NOTE: The data set WORK.MERGE_BETAS has 588 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_84 (File 84)
+
+NOTE: There were 588 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_85.
+NOTE: The data set WORK.MERGE_BETAS has 595 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_85 (File 85)
+
+NOTE: There were 595 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_86.
+NOTE: The data set WORK.MERGE_BETAS has 602 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_86 (File 86)
+
+NOTE: There were 602 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_87.
+NOTE: The data set WORK.MERGE_BETAS has 609 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_87 (File 87)
+
+NOTE: There were 609 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_88.
+NOTE: The data set WORK.MERGE_BETAS has 616 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_88 (File 88)
+
+NOTE: There were 616 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_89.
+NOTE: The data set WORK.MERGE_BETAS has 623 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_89 (File 89)
+
+NOTE: There were 623 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_90.
+NOTE: The data set WORK.MERGE_BETAS has 630 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_90 (File 90)
+
+NOTE: There were 630 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_91.
+NOTE: The data set WORK.MERGE_BETAS has 637 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_91 (File 91)
+
+NOTE: There were 637 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_92.
+NOTE: The data set WORK.MERGE_BETAS has 644 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_92 (File 92)
+
+NOTE: There were 644 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_93.
+NOTE: The data set WORK.MERGE_BETAS has 651 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_93 (File 93)
+
+NOTE: There were 651 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_94.
+NOTE: The data set WORK.MERGE_BETAS has 658 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_94 (File 94)
+
+NOTE: There were 658 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_95.
+NOTE: The data set WORK.MERGE_BETAS has 665 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_95 (File 95)
+
+NOTE: There were 665 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_96.
+NOTE: The data set WORK.MERGE_BETAS has 672 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_96 (File 96)
+
+NOTE: There were 672 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_97.
+NOTE: The data set WORK.MERGE_BETAS has 679 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_97 (File 97)
+
+NOTE: There were 679 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_98.
+NOTE: The data set WORK.MERGE_BETAS has 686 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_98 (File 98)
+
+NOTE: There were 686 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set TEST2.IND_RR_GLM_MASK_99.
+NOTE: The data set WORK.MERGE_BETAS has 693 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_99 (File 99)
+
+NOTE: There were 693 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_100.
+NOTE: The data set WORK.MERGE_BETAS has 700 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_100 (File 100)
+
+NOTE: There were 700 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_101.
+NOTE: The data set WORK.MERGE_BETAS has 707 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_101 (File 101)
+
+NOTE: There were 707 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_102.
+NOTE: The data set WORK.MERGE_BETAS has 714 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_102 (File 102)
+
+NOTE: There were 714 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_103.
+NOTE: The data set WORK.MERGE_BETAS has 721 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_103 (File 103)
+
+NOTE: There were 721 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_104.
+NOTE: The data set WORK.MERGE_BETAS has 728 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_104 (File 104)
+
+NOTE: There were 728 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_105.
+NOTE: The data set WORK.MERGE_BETAS has 735 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_105 (File 105)
+
+NOTE: There were 735 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_106.
+NOTE: The data set WORK.MERGE_BETAS has 742 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_106 (File 106)
+
+NOTE: There were 742 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_107.
+NOTE: The data set WORK.MERGE_BETAS has 749 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_107 (File 107)
+
+NOTE: There were 749 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_108.
+NOTE: The data set WORK.MERGE_BETAS has 756 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_108 (File 108)
+
+NOTE: There were 756 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_109.
+NOTE: The data set WORK.MERGE_BETAS has 763 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_109 (File 109)
+
+NOTE: There were 763 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_110.
+NOTE: The data set WORK.MERGE_BETAS has 770 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_110 (File 110)
+
+NOTE: There were 770 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_111.
+NOTE: The data set WORK.MERGE_BETAS has 777 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_111 (File 111)
+
+NOTE: There were 777 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_112.
+NOTE: The data set WORK.MERGE_BETAS has 784 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_112 (File 112)
+
+NOTE: There were 784 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_113.
+NOTE: The data set WORK.MERGE_BETAS has 791 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_113 (File 113)
+
+NOTE: There were 791 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_114.
+NOTE: The data set WORK.MERGE_BETAS has 798 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_114 (File 114)
+
+NOTE: There were 798 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_115.
+NOTE: The data set WORK.MERGE_BETAS has 805 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_115 (File 115)
+
+NOTE: There were 805 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_116.
+NOTE: The data set WORK.MERGE_BETAS has 812 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_116 (File 116)
+
+NOTE: There were 812 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_117.
+NOTE: The data set WORK.MERGE_BETAS has 819 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_117 (File 117)
+
+NOTE: There were 819 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_118.
+NOTE: The data set WORK.MERGE_BETAS has 826 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_118 (File 118)
+
+NOTE: There were 826 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_119.
+NOTE: The data set WORK.MERGE_BETAS has 833 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_119 (File 119)
+
+NOTE: There were 833 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_120.
+NOTE: The data set WORK.MERGE_BETAS has 840 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_120 (File 120)
+
+NOTE: There were 840 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_121.
+NOTE: The data set WORK.MERGE_BETAS has 847 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_121 (File 121)
+
+NOTE: There were 847 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_122.
+NOTE: The data set WORK.MERGE_BETAS has 854 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_122 (File 122)
+
+NOTE: There were 854 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_123.
+NOTE: The data set WORK.MERGE_BETAS has 861 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_123 (File 123)
+
+NOTE: There were 861 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_124.
+NOTE: The data set WORK.MERGE_BETAS has 868 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_124 (File 124)
+
+NOTE: There were 868 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_125.
+NOTE: The data set WORK.MERGE_BETAS has 875 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_125 (File 125)
+
+NOTE: There were 875 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_126.
+NOTE: The data set WORK.MERGE_BETAS has 882 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_126 (File 126)
+
+NOTE: There were 882 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_127.
+NOTE: The data set WORK.MERGE_BETAS has 889 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_127 (File 127)
+
+NOTE: There were 889 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_128.
+NOTE: The data set WORK.MERGE_BETAS has 896 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_128 (File 128)
+
+NOTE: There were 896 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_129.
+NOTE: The data set WORK.MERGE_BETAS has 903 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_129 (File 129)
+
+NOTE: There were 903 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_130.
+NOTE: The data set WORK.MERGE_BETAS has 910 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_130 (File 130)
+
+NOTE: There were 910 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_131.
+NOTE: The data set WORK.MERGE_BETAS has 917 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_131 (File 131)
+
+NOTE: There were 917 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_132.
+NOTE: The data set WORK.MERGE_BETAS has 924 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_132 (File 132)
+
+NOTE: There were 924 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_133.
+NOTE: The data set WORK.MERGE_BETAS has 931 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_133 (File 133)
+
+NOTE: There were 931 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_134.
+NOTE: The data set WORK.MERGE_BETAS has 938 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_134 (File 134)
+
+NOTE: There were 938 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_135.
+NOTE: The data set WORK.MERGE_BETAS has 945 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_135 (File 135)
+
+NOTE: There were 945 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_136.
+NOTE: The data set WORK.MERGE_BETAS has 952 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_136 (File 136)
+
+NOTE: There were 952 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_137.
+NOTE: The data set WORK.MERGE_BETAS has 959 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_137 (File 137)
+
+NOTE: There were 959 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_138.
+NOTE: The data set WORK.MERGE_BETAS has 966 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_138 (File 138)
+
+NOTE: There were 966 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_139.
+NOTE: The data set WORK.MERGE_BETAS has 973 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_139 (File 139)
+
+NOTE: There were 973 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_140.
+NOTE: The data set WORK.MERGE_BETAS has 980 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_140 (File 140)
+
+NOTE: There were 980 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_141.
+NOTE: The data set WORK.MERGE_BETAS has 987 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_141 (File 141)
+
+NOTE: There were 987 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_142.
+NOTE: The data set WORK.MERGE_BETAS has 994 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_142 (File 142)
+
+NOTE: There were 994 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_143.
+NOTE: The data set WORK.MERGE_BETAS has 1001 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_143 (File 143)
+
+NOTE: There were 1001 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_144.
+NOTE: The data set WORK.MERGE_BETAS has 1008 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_144 (File 144)
+
+NOTE: There were 1008 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_145.
+NOTE: The data set WORK.MERGE_BETAS has 1015 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_145 (File 145)
+
+NOTE: There were 1015 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_146.
+NOTE: The data set WORK.MERGE_BETAS has 1022 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_146 (File 146)
+
+NOTE: There were 1022 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_147.
+NOTE: The data set WORK.MERGE_BETAS has 1029 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_147 (File 147)
+
+NOTE: There were 1029 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_148.
+NOTE: The data set WORK.MERGE_BETAS has 1036 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_148 (File 148)
+
+NOTE: There were 1036 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_149.
+NOTE: The data set WORK.MERGE_BETAS has 1043 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_149 (File 149)
+
+NOTE: There were 1043 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_150.
+NOTE: The data set WORK.MERGE_BETAS has 1050 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_150 (File 150)
+
+NOTE: There were 1050 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_151.
+NOTE: The data set WORK.MERGE_BETAS has 1057 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_151 (File 151)
+
+NOTE: There were 1057 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_152.
+NOTE: The data set WORK.MERGE_BETAS has 1064 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_152 (File 152)
+
+NOTE: There were 1064 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_153.
+NOTE: The data set WORK.MERGE_BETAS has 1071 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_153 (File 153)
+
+NOTE: There were 1071 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_154.
+NOTE: The data set WORK.MERGE_BETAS has 1078 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_154 (File 154)
+
+NOTE: There were 1078 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_155.
+NOTE: The data set WORK.MERGE_BETAS has 1085 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_155 (File 155)
+
+NOTE: There were 1085 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_156.
+NOTE: The data set WORK.MERGE_BETAS has 1092 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_156 (File 156)
+
+NOTE: There were 1092 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_157.
+NOTE: The data set WORK.MERGE_BETAS has 1099 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_157 (File 157)
+
+NOTE: There were 1099 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_158.
+NOTE: The data set WORK.MERGE_BETAS has 1106 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.46 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_158 (File 158)
+
+NOTE: There were 1106 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_159.
+NOTE: The data set WORK.MERGE_BETAS has 1113 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_159 (File 159)
+
+NOTE: There were 1113 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_160.
+NOTE: The data set WORK.MERGE_BETAS has 1120 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.15 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_160 (File 160)
+
+NOTE: There were 1120 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_161.
+NOTE: The data set WORK.MERGE_BETAS has 1127 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_161 (File 161)
+
+NOTE: There were 1127 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_162.
+NOTE: The data set WORK.MERGE_BETAS has 1134 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_162 (File 162)
+
+NOTE: There were 1134 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_163.
+NOTE: The data set WORK.MERGE_BETAS has 1141 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.08 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_163 (File 163)
+
+NOTE: There were 1141 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_164.
+NOTE: The data set WORK.MERGE_BETAS has 1148 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_164 (File 164)
+
+NOTE: There were 1148 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_165.
+NOTE: The data set WORK.MERGE_BETAS has 1155 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_165 (File 165)
+
+NOTE: There were 1155 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_166.
+NOTE: The data set WORK.MERGE_BETAS has 1162 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_166 (File 166)
+
+NOTE: There were 1162 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_167.
+NOTE: The data set WORK.MERGE_BETAS has 1169 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_167 (File 167)
+
+NOTE: There were 1169 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_168.
+NOTE: The data set WORK.MERGE_BETAS has 1176 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_168 (File 168)
+
+NOTE: There were 1176 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_169.
+NOTE: The data set WORK.MERGE_BETAS has 1183 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_169 (File 169)
+
+NOTE: There were 1183 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_170.
+NOTE: The data set WORK.MERGE_BETAS has 1190 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.11 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_170 (File 170)
+
+NOTE: There were 1190 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_171.
+NOTE: The data set WORK.MERGE_BETAS has 1197 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_171 (File 171)
+
+NOTE: There were 1197 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_172.
+NOTE: The data set WORK.MERGE_BETAS has 1204 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_172 (File 172)
+
+NOTE: There were 1204 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_173.
+NOTE: The data set WORK.MERGE_BETAS has 1211 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_173 (File 173)
+
+NOTE: There were 1211 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_174.
+NOTE: The data set WORK.MERGE_BETAS has 1218 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_174 (File 174)
+
+NOTE: There were 1218 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_175.
+NOTE: The data set WORK.MERGE_BETAS has 1225 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_175 (File 175)
+
+NOTE: There were 1225 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_176.
+NOTE: The data set WORK.MERGE_BETAS has 1232 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_176 (File 176)
+
+NOTE: There were 1232 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_177.
+NOTE: The data set WORK.MERGE_BETAS has 1239 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_177 (File 177)
+
+NOTE: There were 1239 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_178.
+NOTE: The data set WORK.MERGE_BETAS has 1246 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.09 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_178 (File 178)
+
+NOTE: There were 1246 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_179.
+NOTE: The data set WORK.MERGE_BETAS has 1253 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.12 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_179 (File 179)
+
+NOTE: There were 1253 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_180.
+NOTE: The data set WORK.MERGE_BETAS has 1260 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.12 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_180 (File 180)
+
+NOTE: There were 1260 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_181.
+NOTE: The data set WORK.MERGE_BETAS has 1267 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.12 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_181 (File 181)
+
+NOTE: There were 1267 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_182.
+NOTE: The data set WORK.MERGE_BETAS has 1274 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_182 (File 182)
+
+NOTE: There were 1274 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_183.
+NOTE: The data set WORK.MERGE_BETAS has 1281 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.09 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_183 (File 183)
+
+NOTE: There were 1281 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_184.
+NOTE: The data set WORK.MERGE_BETAS has 1288 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_184 (File 184)
+
+NOTE: There were 1288 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_185.
+NOTE: The data set WORK.MERGE_BETAS has 1295 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_185 (File 185)
+
+NOTE: There were 1295 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_186.
+NOTE: The data set WORK.MERGE_BETAS has 1302 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_186 (File 186)
+
+NOTE: There were 1302 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_187.
+NOTE: The data set WORK.MERGE_BETAS has 1309 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_187 (File 187)
+
+NOTE: There were 1309 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_188.
+NOTE: The data set WORK.MERGE_BETAS has 1316 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_188 (File 188)
+
+NOTE: There were 1316 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_189.
+NOTE: The data set WORK.MERGE_BETAS has 1323 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_189 (File 189)
+
+NOTE: There were 1323 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_190.
+NOTE: The data set WORK.MERGE_BETAS has 1330 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.25 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_190 (File 190)
+
+NOTE: There were 1330 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_191.
+NOTE: The data set WORK.MERGE_BETAS has 1337 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_191 (File 191)
+
+NOTE: There were 1337 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_192.
+NOTE: The data set WORK.MERGE_BETAS has 1344 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_192 (File 192)
+
+NOTE: There were 1344 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_193.
+NOTE: The data set WORK.MERGE_BETAS has 1351 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_193 (File 193)
+
+NOTE: There were 1351 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_194.
+NOTE: The data set WORK.MERGE_BETAS has 1358 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_194 (File 194)
+
+NOTE: There were 1358 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_195.
+NOTE: The data set WORK.MERGE_BETAS has 1365 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.41 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_195 (File 195)
+
+NOTE: There were 1365 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_196.
+NOTE: The data set WORK.MERGE_BETAS has 1372 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.05 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_196 (File 196)
+
+NOTE: There were 1372 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_197.
+NOTE: The data set WORK.MERGE_BETAS has 1379 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_197 (File 197)
+
+NOTE: There were 1379 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_198.
+NOTE: The data set WORK.MERGE_BETAS has 1386 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_198 (File 198)
+
+NOTE: There were 1386 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_199.
+NOTE: The data set WORK.MERGE_BETAS has 1393 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_199 (File 199)
+
+NOTE: There were 1393 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      TEST2.IND_RR_GLM_MASK_200.
+NOTE: The data set WORK.MERGE_BETAS has 1400 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset test2.ind_rr_glm_mask_200 (File 200)
+NOTE: Total datasets merged: 200 out of 200 possible files
+NOTE: Table WORK.BETAS_SAMP_POP created, with 1400 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 1400 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 1400 observations and 8 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 1400 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_ has 1400 observations and 12 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 1400 observations read from the data set WORK.BETAS_SAMP_POP_.
+NOTE: The data set WORK.OUTPUT_1 has 7 observations and 11 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT_1.
+NOTE: The data set WORK.OUTPUT has 7 observations and 13 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT.
+NOTE: The data set OUTPATH.TEST2_IND_RR_GLM_MASK_ has 7 observations and 13 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: Deleting WORK.MERGE_BETAS (memtype=DATA).
+NOTE: Deleting WORK.BETAS_SAMP_POP (memtype=DATA).
+NOTE: Deleting WORK.BETAS_SAMP_POP_ (memtype=DATA).
+NOTE: Deleting WORK.OUTPUT_1 (memtype=DATA).
+NOTE: Deleting WORK.OUTPUT (memtype=DATA).
+NOTE: PROCEDURE DATASETS used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.04 seconds
+      
+
+631    
+632    proc printto; run;
+

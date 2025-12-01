@@ -1,0 +1,290 @@
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           0.48 seconds
+      cpu time            0.03 seconds
+      
+
+50         
+51         * set libraries;
+52         libname test_bt "*homepath./IPW_lp/data/betas";
+NOTE: Library TEST_BT does not exist.
+53         
+54         * create dataset to insert labels in SUDAAN outputs;
+55         data parms;
+56         	length Parm $ 15;
+57         	input modelrhs parm $;
+58         	datalines;
+
+NOTE: The data set WORK.PARMS has 7 observations and 2 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.80 seconds
+      cpu time            0.00 seconds
+      
+
+66         ;
+3                                                          The SAS System                          11:19 Thursday, November 13, 2025
+
+67         run;
+68         
+69         
+70         /*
+71         %let start=1;
+72         %let end=2;
+73         %let corr=ind;
+74         %let corr_full=independent;
+75         %let miss= miss_ind_mar;
+76         %let i = 1;
+77         */
+78         
+79         %macro impute_sudaan(start=, end=, corr=, corr_full=, miss=, p_miss=0.05);
+80           %do i = &start. %to &end.;
+81         	/*============================*
+82         	 | 1) Split to V1 / V2 / V3   |
+83         	 *============================*/
+84         	data samp_1 samp_2 samp_3;
+85         	  set sample.samplemiss_&i;
+86         	  where &miss. = 0;   /* keep only non-missing per your flag */
+87         	  if v_num = 1 then output samp_1;
+88         	  else if v_num = 2 then output samp_2;
+89         	  else if v_num = 3 then output samp_3;
+90         	run;
+91         
+92         	/* Sort all three and build unique ID lists for V2/V3 */
+93         	proc sort data = samp_1; by subid; run;
+94         	proc sort data = samp_2(keep = subid) out = v2_ids nodupkey; by subid; run;
+95         	proc sort data = samp_3(keep = subid) out = v3_ids nodupkey; by subid; run;
+96         
+97         /*=====================================================*
+98          | 2) Add PARTICIPANT_V2 / PARTICIPANT_V3 to the V1   |
+99          |    dataset BEFORE missingness + MI                 |
+100         *=====================================================*/
+101        	data samp_1_w_flags;
+102        	  merge samp_1(in = in_v1)
+103        	        v2_ids(in = in_v2)
+104        	        v3_ids(in = in_v3);
+105        	  by subid;
+106        	  if in_v1;
+107        	  PARTICIPANT_V2 = (in_v2 = 1);
+108        	  PARTICIPANT_V3 = (in_v3 = 1);
+109        
+110        	    /* Strata indicators: 1/0 flags */
+111        	  length strata1 strata2 strata3 8;
+112        	  strata1 = (strat in (1, 5));
+113        	  strata2 = (strat in (2, 6));
+114        	  strata3 = (strat in (3, 7));
+115        	run;
+116        
+117        	/* Optional: quick check */
+118        	proc freq data = samp_1_w_flags;
+119        	  tables PARTICIPANT_V2 PARTICIPANT_V3 / missing;
+120        	run;
+121        
+122        	/*====================================================*
+123        	 | 3) Inject ~5% or ~20% MCAR missingness for V1 variables   |
+124        	 *====================================================*/
+4                                                          The SAS System                          11:19 Thursday, November 13, 2025
+
+125        	data samp_1_miss;
+126        	  set samp_1_w_flags;
+127        	  array missvars age_base x12 x14;   /* variables to blank */
+128        	  do over missvars;
+129        	    if rand('uniform') < &p_miss. then missvars = .;
+130        	  end;
+131        	run;
+132        
+133        	/* Optional: sanity check */
+134        	proc means data = samp_1_miss n nmiss;
+135        	  var age_base x12 x14;
+136        	run;
+137        
+138        	/*========================================*
+139        	 | 4) Multiple Imputation on V1 dataset   |
+140        	 *========================================*/
+141        	proc mi data = samp_1_miss seed = 2021 nimpute = 5 out = samp_complete;
+142        	  class strata1 strata2 strata3 x12 x14;
+143        	  var strata1 strata2 strata3 age_base x12 x14 bghhsub_s2;
+144        	  fcs reg(age_base);          /* continuous */
+145        	  fcs logistic(x12 x14);      /* binary/categorical */
+146        	run;
+147        
+148        /*===========================*
+149         | 5) IPW prediction models  |
+150         *===========================*/
+151        
+152        	/* = Visit 2: logistic */
+153        	proc logistic data = samp_complete descending noprint;
+154        	  by _Imputation_;
+155        	  class strata1 strata2 strata3 x12 x14 PARTICIPANT_V2;
+156        	  model PARTICIPANT_V2 = strata1 strata2 strata3 age_base x12 x14 ;
+157        	  output out = pred_v2_imp(keep = _Imputation_ subid xb_v2) xbeta = xb_v2;
+158        	run;
+159        
+160        	proc means data = pred_v2_imp nway noprint;
+161        	  class subid;
+162        	  var xb_v2;
+163        	  output out = pred_v2_bar(drop = _type_ _freq_) mean = xb_v2_bar;
+164        	run;
+165        
+166        	/* = Visit 3: logistic */
+167        
+168        	proc logistic data = samp_complete descending noprint;
+169        	  by _Imputation_;
+170        	  class strata1 strata2 strata3 x12 x14 PARTICIPANT_V2 PARTICIPANT_V3;
+171        	  model PARTICIPANT_V3 = strata1 strata2 strata3 age_base x12 x14 PARTICIPANT_V2;
+172        	  output out = pred_v3_imp(keep = _Imputation_ subid xb_v3) xbeta = xb_v3;
+173        	run;
+174        
+175        	proc means data = pred_v3_imp nway noprint;
+176        	  class subid;
+177        	  var xb_v3;
+178        	  output out = pred_v3_bar(drop = _type_ _freq_) mean = xb_v3_bar;
+179        	run;
+180        
+181        	/*===========================*
+182        	 | 6) Compute response rates |
+5                                                          The SAS System                          11:19 Thursday, November 13, 2025
+
+183        	 *===========================*/
+184        	proc sort data = pred_v2_bar; by subid; run;
+185        	proc sort data = pred_v3_bar; by subid; run;
+186        
+187        	data samp_ipw;
+188        	  merge pred_v2_bar(rename = (xb_v2_bar = lp_v2))
+189        	        pred_v3_bar(rename = (xb_v3_bar = lp_v3));
+190        	  by subid;
+191        
+192        	  /* Predicted response rates */
+193        	  if not missing(lp_v2) then RR_V2 = 1 / (1 + exp(-lp_v2));
+194        	  if not missing(lp_v3) then RR_V3 = 1 / (1 + exp(-lp_v3));
+195        	run;
+196        
+197        	/* --- Starting from samp_ipw already created --- */
+198        	data samp_ipw_long(keep = subid v_num rr_glm_mask);
+199        	  set samp_ipw;
+200        
+201        	  /* Visit 1: rr_glm_mask = 1 */
+202        	  v_num  = 1; rr_glm_mask = 1; output;
+203        
+204        	  /* Visit 2: rr_glm_mask = RR_V2 */
+205        	  v_num  = 2; rr_glm_mask = RR_V2; output;
+206        
+207        	  /* Visit 3: rr_glm_mask = RR_V3 */
+208        	  v_num  = 3; rr_glm_mask = RR_V3; output;
+209        	run;
+210        
+211        	proc sort data = samp_ipw_long; by subid v_num; run;
+212        
+213        	/* Bring in the base sample restricted by &miss. */
+214        	data sampmiss;
+215        	  set sample.samplemiss_&i;
+216        	  where &miss. = 0;
+217        	run;
+218        	proc sort data = sampmiss; by subid v_num; run;
+219        
+220        	/* Merge the rr_glm_mask and compute nonresponse-adjusted weight */
+221        	data samp;
+222        	  merge sampmiss(in = a)
+223        	        samp_ipw_long(in = b);
+224        	  by subid v_num;
+225        
+226        	  if a;
+227        
+228        	  /* weight adjusted for nonresponse */
+229        	  bghhsub_s2_nr = bghhsub_s2 / rr_glm_mask;
+230        	run;
+231        
+232        	/* Sort samp by subid for merging */
+233        	proc sort data = samp;
+234        		by subid;
+235        	run;
+236        
+237        	/* Step 1: Create a dataset with subid in V3 */
+238        	proc sql;
+239        	   create table valid_subid as
+240        	   select distinct subid
+6                                                          The SAS System                          11:19 Thursday, November 13, 2025
+
+241        	   from samp
+242        	   where v_num = 3;
+243        	quit;
+244        
+245        	/* Sort valid_subid by subid for merging */
+246        	proc sort data = valid_subid;
+247        		by subid;
+248        	run;
+249        			
+250        	/* Step 2: Merge samp with valid_subid to keep only valid subids */
+251        	data samp_filtered;
+252        	   merge samp(in=a) valid_subid(in=b);
+253        	   by subid;
+254        	   if b;  /* Only keep records from samp where subid is in valid_subid */
+255        	run;
+256        
+257        	/* Step 3: Create a dataset with the value of bghhsub_s2_nr for v_num = 3 for each subid */
+258        	proc sql;
+259        	   create table temp as
+260        	   select subid, bghhsub_s2_nr as bghhsub_s2_v3_nr
+261        	   from samp_filtered
+262        	   where v_num = 3;
+263        	quit;
+264        
+265        	/* Step 4: Merge the new variable back into the filtered dataset */
+266        	data samplemiss_&i._;
+267        	   merge samp_filtered temp;
+268        	   by subid;
+269        	run;
+270        
+271        	/* Order data */
+272        	proc sort data = samplemiss_&i._;
+273        		by strat_recoded bgid hhid subid;
+274        	run;
+275        
+276        	* Fit regress model from sudaan using &corr matrix;
+277        		* In a simulation group meeting it was requested to use hhid as PSUs instead of bgid;
+278        
+279        	options pagesize=60 linesize=80;
+280        	* create the model conditional on response type;
+281        		%let yvar = %sysfunc(ifc(&type=1,y_gfr,y_bin_gfr));
+282        		%let procedure = %sysfunc(ifc(&type=1,regress,rlogist));
+283        			
+284        	* fit the model;
+285        	proc &procedure. data = samplemiss_&i._ filetype=sas r=&corr_full semethod=zeger;
+286        		%if  &corr. = exch %then %do;
+287        			nest strat_recoded hhid / psulev=2 ;
+288        		%end;
+289        		%else %do;
+290        			nest strat_recoded hhid;
+291        		%end;
+292        		weight bghhsub_s2_v3_nr;
+293        		model &yvar. = x17 x12 x18 y_bmi age_strat_new x6;
+294        		output beta sebeta p_beta t_beta / filename=betas filetype=sas replace;
+295        	run;
+296        	
+297        	* Append parameter names to sudaan output;
+298        	data test_bt.&corr._rr_glm_mask_&p_miss._&type._&i.;
+7                                                          The SAS System                          11:19 Thursday, November 13, 2025
+
+299        		merge betas(rename=(BETA=Estimate SEBETA=Stderr P_BETA=ProbZ t_beta=t)) parms;
+300        		by modelrhs;
+301        		length parm $ 20;
+302        		format Estimate Stderr 12.4;
+303        		drop procnum modelno modelrhs;
+304        	run;
+305        
+306          %end;
+307        %mend impute_sudaan;
+308        
+309        * miss_ind_mar;
+310        
+311        * &type = 1=cont or 2=bin;
+312        %impute_sudaan(start=1, end=3, corr=ind, corr_full=independent, miss= miss_ind_mar, p_miss=0.05, type=1);
+ERROR: The keyword parameter TYPE was not defined with the macro.
+313        %impute_sudaan(start=1, end=3, corr=ind, corr_full=independent, miss= miss_ind_mar, p_miss=0.20, type=1);
+ERROR: The keyword parameter TYPE was not defined with the macro.
+314        %impute_sudaan(start=1, end=3, corr=ind, corr_full=independent, miss= miss_ind_mar, p_miss=0.05, type=2);
+ERROR: The keyword parameter TYPE was not defined with the macro.
+315        %impute_sudaan(start=1, end=3, corr=ind, corr_full=independent, miss= miss_ind_mar, p_miss=0.20, type=2);
+ERROR: The keyword parameter TYPE was not defined with the macro.
+316        
+317        
+318        proc printto; run;
+
