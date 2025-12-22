@@ -141,9 +141,11 @@ run;
   proc sort data = pred_v3_bar; by subid; run;
 
   data samp_ipw;
-    merge pred_v2_bar(rename = (xb_v2_bar = lp_v2))
+    merge samp_1_miss(in = a)
+		  pred_v2_bar(rename = (xb_v2_bar = lp_v2))
           pred_v3_bar(rename = (xb_v3_bar = lp_v3));
     by subid;
+	if a;
 
     /* Predicted response rates (probability of being in analytic set) */
     if not missing(lp_v2) then RR_V2 = 1 / (1 + exp(-lp_v2));
@@ -151,26 +153,39 @@ run;
   run;
 
 
-  /* --- Starting from samp_ipw already created --- */
-  data samp_ipw_long(keep = subid v_num rr_glm_mask);
-    set samp_ipw;
+/* --- Starting from samp_ipw already created --- */
+data samp_ipw_long(keep = subid v_num PARTICIPANT_V3_NOMISS rr_glm_mask);
+  set samp_ipw;
 
-    /* Visit 1: rr_glm_mask = 1 */
-    v_num  = 1; rr_glm_mask = 1;      output;
+  /* Visit 1: everyone contributes */
+  v_num = 1;
+  rr_glm_mask = 1;
+  output;
 
-    /* Visit 2: rr_glm_mask = RR_V2 */
-    v_num  = 2; rr_glm_mask = RR_V2;  output;
+  /* Visit 2: only participants with data contribute */
+  v_num = 2;
+  if PARTICIPANT_V2_NOMISS = 1 then
+    rr_glm_mask = RR_V2;
+  else
+    rr_glm_mask = .;
+  output;
 
-    /* Visit 3: rr_glm_mask = RR_V3 */
-    v_num  = 3; rr_glm_mask = RR_V3;  output;
-  run;
+  /* Visit 3: only participants with data contribute */
+  v_num = 3;
+  if PARTICIPANT_V3_NOMISS = 1 then
+    rr_glm_mask = RR_V3;
+  else
+    rr_glm_mask = .;
+  output;
+run;
+
 
   proc sort data = samp_ipw_long; by subid v_num; run;
 
   /* Bring in the base sample restricted by &miss. */
   data sampmiss;
     set sample.samplemiss_&i;
-    where &miss. = 0;
+/*    where &miss. = 0;*/
   run;
 
   proc sort data = sampmiss; by subid v_num; run;
@@ -258,6 +273,7 @@ run;
       nest strat_recoded hhid;
     %end;
     weight bghhsub_s2_v3_nr;    * use visit-3 adjusted weight;
+	subpopn PARTICIPANT_V3_NOMISS = 1;
     model y_gfr = x17 x12 x18 y_bmi age_strat_new x6;
     output beta sebeta p_beta t_beta / filename=betas_&corr._&i._ filetype=sas replace;
   run;
