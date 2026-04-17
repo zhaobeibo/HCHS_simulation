@@ -1,0 +1,337 @@
+﻿/*%include "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\scripts\_init.sas";*/
+/**/
+/*proc printto log = "&homepath./logs/s4_sudaan_miglm_&sysdate..log"*/
+/*			 print= "&homepath./lst/s4_sudaan_miglm_&sysdate..lst" new; run; */
+
+%let homepath = J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\;
+libname sample "&homepath./data/derived/sample";
+
+%let corr=ind;
+%let corr_full=independent;
+%let miss= miss_ind_mar;
+%let pmiss=20;
+%let unif=1;
+
+%let i =1;
+
+/*============================*
+ | 1) Split to V1 / V2 / V3   |
+ *============================*/
+data samp_1 samp_2 samp_3;
+  set sample.samplemiss_&i;
+  where &miss. = 0;   /* keep only non-missing per your flag */
+  if      v_num = 1 then output samp_1;
+  else if v_num = 2 then output samp_2;
+  else if v_num = 3 then output samp_3;
+run;
+
+/* Sort all three and build unique ID lists for V2/V3 */
+proc sort data = samp_1;                           by subid; run;
+proc sort data = samp_2(keep = subid) out = v2_ids nodupkey; by subid; run;
+proc sort data = samp_3(keep = subid) out = v3_ids nodupkey; by subid; run;
+
+/*=====================================================*
+ | 2) Add PARTICIPANT_V2 / PARTICIPANT_V3 to the V1   |
+ |    dataset BEFORE missingness + MI                 |
+ *=====================================================*/
+data samp_1_w_flags;
+  merge samp_1(in = in_v1)
+        v2_ids(in = in_v2)
+        v3_ids(in = in_v3);
+  by subid;
+  if in_v1;
+  PARTICIPANT_V2 = (in_v2 = 1);
+  PARTICIPANT_V3 = (in_v3 = 1);
+
+    /* Strata indicators: 1/0 flags */
+  length strata1 strata2 strata3 8;
+  strata1 = (strat in (1, 5));
+  strata2 = (strat in (2, 6));
+  strata3 = (strat in (3, 7));
+run;
+
+/* Optional: quick check */
+proc freq data = samp_1_w_flags;
+  tables PARTICIPANT_V2 PARTICIPANT_V3 / missing;
+run;
+
+/*====================================================*
+ | 3) Inject ~20% MCAR missingness for V1 variables   |
+ *====================================================*/
+data samp_1_miss;
+  set samp_1_w_flags;
+  array missvars age_base x12 x14;   /* variables to blank */
+
+  * Random missingness;
+  if &unif=0 then do over missvars;
+    if 100*rand('uniform') < &pmiss then missvars = .;
+  end;
+
+  * Uniform missingness;
+  if &unif=1 and 100*rand('uniform') < &pmiss then do over missvars;
+    missvars = .;
+  end;
+
+	/* Re-define PARTICIPANT flags:
+		1 = attended visit AND all baseline variables are non-missing */
+	PARTICIPANT_V2_NOMISS = (PARTICIPANT_V2 = 1 and nmiss(age_base, x12, x14) = 0);
+	PARTICIPANT_V3_NOMISS = (PARTICIPANT_V3 = 1 and nmiss(age_base, x12, x14) = 0);
+run;
+
+
+/* Optional: quick check */
+proc freq data = samp_1_miss;
+  tables PARTICIPANT_V2_NOMISS PARTICIPANT_V3_NOMISS / missing;
+run;
+
+/* Optional: sanity check */
+/*proc means data = samp_1_miss n nmiss;*/
+/*  var age_base x12 x14;*/
+/*run;*/
+
+/*========================================*
+ | 4) Multiple Imputation on V1 dataset   |
+ *========================================*/
+proc mi data = samp_1_miss seed = 2021 nimpute = 5 out = samp_complete;
+  class strata1 strata2 strata3 x12 x14;
+  var strata1 strata2 strata3 age_base x12 x14 bghhsub_s2;
+  fcs reg(age_base);          /* continuous */
+  fcs logistic(x12 x14);      /* binary/categorical */
+run;
+
+/*===========================*
+ | 5) IPW prediction models  |
+ *===========================*/
+
+/* = Visit 2: logistic on analytic PARTICIPANT_V2 flag = */
+proc logistic data = samp_complete descending noprint;
+  by _Imputation_;
+  class strata1 strata2 strata3 x12 x14 PARTICIPANT_V2_NOMISS;
+  model PARTICIPANT_V2_NOMISS = strata1 strata2 strata3 age_base x12 x14;
+  output out = pred_v2_imp(keep = _Imputation_ subid xb_v2) xbeta = xb_v2;
+run;
+
+proc means data = pred_v2_imp nway noprint;
+  class subid;
+  var xb_v2;
+  output out = pred_v2_bar(drop = _type_ _freq_) mean = xb_v2_bar;
+run;
+
+/* =	Visit 3: logistic on analytic PARTICIPANT_V3 flag
+		with baseline + PARTICIPANT_V2 only = */
+proc logistic data = samp_complete descending noprint;
+  by _Imputation_;
+  class strata1 strata2 strata3 x12 x14 PARTICIPANT_V2 PARTICIPANT_V3_NOMISS;
+  model PARTICIPANT_V3_NOMISS = strata1 strata2 strata3 age_base x12 x14 PARTICIPANT_V2;
+  output out = pred_v3_imp(keep = _Imputation_ subid xb_v3) xbeta = xb_v3;
+run;
+
+proc means data = pred_v3_imp nway noprint;
+  class subid;
+  var xb_v3;
+  output out = pred_v3_bar(drop = _type_ _freq_) mean = xb_v3_bar;
+run;
+
+/*===========================*
+ | 6) Compute response rates |
+ *===========================*/
+proc sort data = pred_v2_bar; by subid; run;
+proc sort data = pred_v3_bar; by subid; run;
+
+data samp_ipw;
+  merge	samp_1_miss (in = a)
+			pred_v2_bar(rename = (xb_v2_bar = lp_v2))
+			pred_v3_bar(rename = (xb_v3_bar = lp_v3));
+  by subid;
+
+  if a;
+
+  /* Predicted response rates (probability of being in analytic set) */
+  if not missing(lp_v2) then RR_V2 = 1 / (1 + exp(-lp_v2));
+  if not missing(lp_v3) then RR_V3 = 1 / (1 + exp(-lp_v3));
+run;
+
+
+/*data home.samp_ipw;*/
+/*	set samp_ipw;*/
+/*run;*/
+
+
+/* --- Starting from samp_ipw already created --- */
+data samp_ipw_long(keep = subid v_num PARTICIPANT_V2_NOMISS PARTICIPANT_V3_NOMISS rr_glm_mask);
+  set samp_ipw;
+
+  /* Visit 1: everyone contributes */
+  v_num  = 1;
+  rr_glm_mask = 1;
+  output;
+
+  /* Visit 2: only participants with data contribute */
+  v_num  = 2;
+  if PARTICIPANT_V2_NOMISS = 1 then rr_glm_mask = RR_V2;
+  else rr_glm_mask = .;
+  output;
+
+  /* Visit 3: only participants with data contribute */
+  v_num  = 3;
+  if PARTICIPANT_V3_NOMISS = 1 then rr_glm_mask = RR_V3;
+  else rr_glm_mask = .;
+  output;
+run;
+
+proc sort data = samp_ipw_long; by subid v_num; run;
+
+
+/*data home.samp_ipw_long;*/
+/*	set samp_ipw_long;*/
+/*run;*/
+
+
+/* Bring in the base sample restricted by &miss. */
+data sampmiss;
+  set samplemiss_&i;
+/*  where &miss. = 0;*/
+run;
+
+proc sort data = sampmiss; by subid v_num; run;
+
+/* Merge the rr_glm_mask and compute nonresponse-adjusted weight */
+data samp;
+  merge sampmiss(in = a)
+        samp_ipw_long(in = b);
+  by subid v_num;
+
+  if a;
+
+  /* weight adjusted for nonresponse */
+  bghhsub_s2_nr = bghhsub_s2 / rr_glm_mask;
+
+  /* Recreate age_strat_new from age_base so missingness propagates
+  	  consistently with the main model */
+
+  length age_strat_new 8;
+
+  if missing(age_base) then do;
+    age_strat_new = .;
+  end;
+  else do;
+    /* same as in import_sample_data.sas */
+    age_strat_new = 1*(age_base >= 45);
+  end;
+run;
+
+
+/* Sort samp by subid for merging */
+proc sort data = samp;
+	by subid;
+run;
+
+/* Create variables for bghhsub_s2_v2_nr and bghhsub_s2_v3_nr */
+PROC SQL;
+	create table samplemiss_&i._ as
+	select	t1.*,
+				t2.bghhsub_s2_v2_nr,
+				t3.bghhsub_s2_v3_nr
+	from samp t1
+	left join (	select	subid,
+					bghhsub_s2_nr as bghhsub_s2_v2_nr
+					from samp
+					where v_num = 2) t2
+	on t1.subid=t2.subid
+	left join (	select	subid,
+					bghhsub_s2_nr as bghhsub_s2_v3_nr
+					from samp
+					where v_num = 3) t3
+	on t1.subid=t3.subid;
+QUIT;
+
+/* Step 1: Create a dataset with subid in V3 */
+/*proc sql;*/
+/*   create table valid_subid as*/
+/*   select distinct subid*/
+/*   from samp*/
+/*   where v_num = 3;*/
+/*quit;*/
+
+/* Sort valid_subid by subid for merging */
+/*proc sort data = valid_subid;*/
+/*	by subid;*/
+/*run;*/
+		
+/* Step 2: Merge samp with valid_subid to keep only valid subids */
+/*data samp_filtered;*/
+/*   merge samp(in=a) valid_subid(in=b);*/
+/*   by subid;*/
+/*   if b; *Only keep records from samp where subid is in valid_subid;*/
+/*run;*/
+
+/* Step 3: Create a dataset with the value of bghhsub_s2_nr for v_num = 3 for each subid */
+/*proc sql;*/
+/*   create table temp as*/
+/*   select subid, bghhsub_s2_nr as bghhsub_s2_v3_nr*/
+/*   from samp_filtered*/
+/*   where v_num = 3;*/
+/*quit;*/
+
+/* Step 4: Merge the new variable back into the filtered dataset */
+/*data samplemiss_&i._;*/
+/*   merge samp_filtered temp;*/
+/*   by subid;*/
+/*run;*/
+
+/* Step 5: Put the V1 missingness back in */
+PROC SQL;
+	create table samplemiss_&i._ as
+	select	*,
+				case 	when t2.age_base=. then . 
+						else 1*(t2.age_base>=45) end as age_strat_new
+	from	samplemiss_&i._ (drop=age_base age_strat_new x12 x14) t1,
+			samp_1_miss (keep=subid age_base x12 x14) t2
+	where t1.subid=t2.subid;
+QUIT;
+
+/* Order data */
+proc sort data = samplemiss_&i._; 
+	by bgid hhid subid; 
+run;
+
+%if &unif=0 %then %do;
+DATA nomi.samplemiss_&pmiss.pct_&i._;
+	set samplemiss_&i._;
+RUN;
+%end;
+
+%if &unif=1 %then %do;
+DATA nomi.samplemiss_unif_&pmiss.pct_&i._;
+	set samplemiss_&i._;
+RUN;
+%end;
+
+	* Fit regress model from sudaan using &corr matrix;  
+		* In a simulation group meeting it was requested to use hhid as PSUs instead of bgid;
+/*	options pagesize=60 linesize=80;*/
+/*	proc regress data = samplemiss_&i._ filetype=sas r=&corr_full semethod=zeger;*/
+/*		%if  &corr. = exch %then %do; */
+/*			nest strat_recoded hhid / psulev=2 ;*/
+/*		%end;*/
+/*		%else %do;*/
+/*			nest strat_recoded hhid;*/
+/*		%end;*/
+/*		weight bghhsub_s2_v3_nr;    *use visit-3 adjusted weight;*/
+/*		model y_gfr = x17 x12 x18 y_bmi age_strat_new x6;*/
+/*		output beta sebeta p_beta t_beta / filename=betas_&corr._&i._ filetype=sas replace;*/
+/*	run;*/
+	
+	* Append parameter names to sudaan output; 
+/*	data test2.&corr._rr_glm_mask_&i;*/
+/*		merge betas_&corr._&i._(rename=(BETA=Estimate SEBETA=Stderr P_BETA=ProbZ t_beta=t)) parms;  */
+/*		by modelrhs;*/
+/*		length parm $ 20;*/
+/*		format Estimate Stderr 12.4;*/
+/*		drop procnum modelno modelrhs;*/
+/*	run;       */
+
+
+
+
+/*proc printto; run;*/

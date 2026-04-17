@@ -69,8 +69,8 @@ proc printto log = "&homepath./logs/combine_test_&sysdate..log"
     /* Compute 95% confidence intervals */
     data betas_samp_pop; 
         set betas_samp_pop;
-        uppercl = Estimate + 1.975 * Stderr; 
-        lowercl = Estimate - 1.975 * Stderr; 
+        uppercl = Estimate + 1.96 * Stderr; 
+        lowercl = Estimate - 1.96 * Stderr; 
     run;
 
     /* Estimate quantities of interest: bias, ... */
@@ -119,7 +119,7 @@ proc printto log = "&homepath./logs/combine_test_&sysdate..log"
 /*%combine_con_betas(start=1, end=100, corr=ind, corr_full=independent, rr=_double_rr_, */
 /*                 input_lib=test1);*/
 
-%combine_con_betas(start=1, end=200, corr=ind, corr_full=independent, rr=_rr_glm_mask_, 
+%combine_con_betas(start=1, end=500, corr=ind, corr_full=independent, rr=_rr_glm_mask_, 
                  input_lib=test2);
 
 proc printto; run;
