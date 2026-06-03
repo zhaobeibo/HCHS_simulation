@@ -1,11 +1,11 @@
 %include "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\scripts\_init.sas";
 
-%let datapath = J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\data\sample_miss20pct\;
+%let datapath = J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\data\sample_miss00pct\;
 libname sampmiss "&datapath.";
 libname missout "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\data\derived\betas\with_miss\";
 
-proc printto log = "&homepath./logs/s4_genmod_20miss_&sysdate..log"
-             print= "&homepath./lst/s4_genmod_20miss_&sysdate..lst" new;
+proc printto log = "&homepath./logs/s4_genmod_00miss_&sysdate..log"
+             print= "&homepath./lst/s4_genmod_00miss_&sysdate..lst" new;
 run;
 
 

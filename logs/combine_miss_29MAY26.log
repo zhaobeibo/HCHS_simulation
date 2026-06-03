@@ -1,0 +1,1197 @@
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           1.31 seconds
+      cpu time            0.18 seconds
+      
+
+41   
+42   
+43   %macro combine_con_betas(start=, end=, corr=, corr_full = , rr=,
+44                          input_lib=, pop_lib=dt_betas, output_lib=outpath)
+44 ! ;
+45   
+46       /* Create a temporary dataset to hold all existing files */
+47       data merge_betas;
+48           /* Initialize empty dataset with correct structure */
+49           length parm $20;
+50           if 0; /* This creates structure but no observations */
+51       run;
+52   
+53       /* Counter for successful merges */
+54       %let merge_count = 0;
+55   
+56       /* Loop through each file number and check if it exists */
+57       %do i = &start %to &end;
+58           /* Check if dataset exists using SASHELP.VTABLE or by attempting
+58 !  to open */
+59           %if %sysfunc(exist(&input_lib..&corr.&rr.&i.)) %then %do;
+60               /* Dataset exists, append it */
+61               data merge_betas;
+62                   set merge_betas &input_lib..&corr.&rr.&i.;
+63                   if parm = 'intercept' then parm = 'Intercept';
+64               run;
+65               %let merge_count = %eval(&merge_count + 1);
+66               %put NOTE: Successfully merged dataset
+66 ! &input_lib..&corr.&rr.&i. (File &merge_count);
+67           %end;
+68           %else %do;
+69               %put WARNING: Dataset &input_lib..&corr.&rr.&i. does not
+69 ! exist - skipping;
+70           %end;
+71       %end;
+72   
+73       %put NOTE: Total datasets merged: &merge_count out of %eval(&end -
+73 ! &start + 1) possible files;
+74   
+75       /* Check if we have any data to process */
+76       %let dsid = %sysfunc(open(merge_betas));
+77       %let nobs = %sysfunc(attrn(&dsid, nobs));
+78       %let rc = %sysfunc(close(&dsid));
+79   
+80       %if &nobs = 0 %then %do;
+81           %put ERROR: No datasets found to merge for
+81 ! &input_lib..&corr.&rr. - exiting macro;
+82           %return;
+83       %end;
+84   
+85       /* Append the true value coming from population estimates */
+86       proc sql;
+87           create table betas_samp_pop as
+88           select a.*, b.estimate as true
+89           from merge_betas as a
+90           right join
+91           &pop_lib..betas_pop_&corr. as b
+92           on a.parm=b.parm;
+93       quit;
+94   
+95       /* Compute 95% confidence intervals */
+96       data betas_samp_pop;
+97           set betas_samp_pop;
+98           uppercl = Estimate + 1.96 * Stderr;
+99           lowercl = Estimate - 1.96 * Stderr;
+100      run;
+101  
+102      /* Estimate quantities of interest: bias, ... */
+103      data betas_samp_pop_;
+104          set betas_samp_pop;
+105          /* Calculate statistics to summarize */
+106          inci = (uppercl >= true & lowercl <= true);
+107          bias = estimate - true;
+108          relbias = bias / true;
+109          /* PROBT */
+110          rejecth0 = (abs(t) > quantile('NORMAL',.975));
+111      run;
+112  
+113      /* Calculate summary statistics */
+114      proc means data=betas_samp_pop_ noprint nway;
+115          class parm;
+116          var true estimate bias relbias stderr inci rejecth0;
+117          output out=output_1 mean(true estimate bias relbias stderr inci
+118                  rejecth0)=true estimate empbias relbias estse coverage
+119                  prejecth0 std(estimate)=empse;
+120      run;
+121  
+122      /* Final calculations */
+123      data output;
+124          set output_1;
+125          relse = estse/empse - 1;
+126          /* Add information about number of files merged */
+127          files_merged = &merge_count;
+128      run;
+129  
+130      /* Save output dataset */
+131      data &output_lib..&input_lib._&corr.&rr.;
+132          set output;
+133      run;
+134  
+135      /* Clean up temporary datasets */
+136      proc datasets library=work nolist;
+137          delete merge_betas betas_samp_pop betas_samp_pop_ output_1
+137! output;
+138      quit;
+139  
+140  %mend combine_con_betas;
+141  
+142  
+143  * s1 - MI scenarios;
+144  * miss_ind_mar scenarios;
+145  /*%combine_con_betas(start=1, end=100, corr=ind, corr_full=independent,
+145! rr=_double_rr_, */
+146  /*                 input_lib=test1);*/
+147  
+148  %combine_con_betas(start=1, end=100, corr=ind, corr_full=independent,
+148! rr=_rr_glm_,
+149                   input_lib=missout);
+
+NOTE: Variable parm is uninitialized.
+NOTE: The data set WORK.MERGE_BETAS has 0 observations and 1 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 0 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_1.
+NOTE: The data set WORK.MERGE_BETAS has 7 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_1 (File 1)
+
+NOTE: There were 7 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_2.
+NOTE: The data set WORK.MERGE_BETAS has 14 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_2 (File 2)
+
+NOTE: There were 14 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_3.
+NOTE: The data set WORK.MERGE_BETAS has 21 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_3 (File 3)
+
+NOTE: There were 21 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_4.
+NOTE: The data set WORK.MERGE_BETAS has 28 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_4 (File 4)
+
+NOTE: There were 28 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_5.
+NOTE: The data set WORK.MERGE_BETAS has 35 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_5 (File 5)
+
+NOTE: There were 35 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_6.
+NOTE: The data set WORK.MERGE_BETAS has 42 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_6 (File 6)
+
+NOTE: There were 42 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_7.
+NOTE: The data set WORK.MERGE_BETAS has 49 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_7 (File 7)
+
+NOTE: There were 49 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_8.
+NOTE: The data set WORK.MERGE_BETAS has 56 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_8 (File 8)
+
+NOTE: There were 56 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_9.
+NOTE: The data set WORK.MERGE_BETAS has 63 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_9 (File 9)
+
+NOTE: There were 63 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_10.
+NOTE: The data set WORK.MERGE_BETAS has 70 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_10 (File 10)
+
+NOTE: There were 70 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_11.
+NOTE: The data set WORK.MERGE_BETAS has 77 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_11 (File 11)
+
+NOTE: There were 77 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_12.
+NOTE: The data set WORK.MERGE_BETAS has 84 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_12 (File 12)
+
+NOTE: There were 84 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_13.
+NOTE: The data set WORK.MERGE_BETAS has 91 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_13 (File 13)
+
+NOTE: There were 91 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_14.
+NOTE: The data set WORK.MERGE_BETAS has 98 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_14 (File 14)
+
+NOTE: There were 98 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_15.
+NOTE: The data set WORK.MERGE_BETAS has 105 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_15 (File 15)
+
+NOTE: There were 105 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_16.
+NOTE: The data set WORK.MERGE_BETAS has 112 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_16 (File 16)
+
+NOTE: There were 112 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_17.
+NOTE: The data set WORK.MERGE_BETAS has 119 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_17 (File 17)
+
+NOTE: There were 119 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_18.
+NOTE: The data set WORK.MERGE_BETAS has 126 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_18 (File 18)
+
+NOTE: There were 126 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_19.
+NOTE: The data set WORK.MERGE_BETAS has 133 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_19 (File 19)
+
+NOTE: There were 133 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_20.
+NOTE: The data set WORK.MERGE_BETAS has 140 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_20 (File 20)
+
+NOTE: There were 140 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_21.
+NOTE: The data set WORK.MERGE_BETAS has 147 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_21 (File 21)
+
+NOTE: There were 147 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_22.
+NOTE: The data set WORK.MERGE_BETAS has 154 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_22 (File 22)
+
+NOTE: There were 154 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_23.
+NOTE: The data set WORK.MERGE_BETAS has 161 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_23 (File 23)
+
+NOTE: There were 161 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_24.
+NOTE: The data set WORK.MERGE_BETAS has 168 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_24 (File 24)
+
+NOTE: There were 168 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_25.
+NOTE: The data set WORK.MERGE_BETAS has 175 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_25 (File 25)
+
+NOTE: There were 175 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_26.
+NOTE: The data set WORK.MERGE_BETAS has 182 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_26 (File 26)
+
+NOTE: There were 182 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_27.
+NOTE: The data set WORK.MERGE_BETAS has 189 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_27 (File 27)
+
+NOTE: There were 189 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_28.
+NOTE: The data set WORK.MERGE_BETAS has 196 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_28 (File 28)
+
+NOTE: There were 196 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_29.
+NOTE: The data set WORK.MERGE_BETAS has 203 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_29 (File 29)
+
+NOTE: There were 203 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_30.
+NOTE: The data set WORK.MERGE_BETAS has 210 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_30 (File 30)
+
+NOTE: There were 210 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_31.
+NOTE: The data set WORK.MERGE_BETAS has 217 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_31 (File 31)
+
+NOTE: There were 217 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_32.
+NOTE: The data set WORK.MERGE_BETAS has 224 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_32 (File 32)
+
+NOTE: There were 224 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_33.
+NOTE: The data set WORK.MERGE_BETAS has 231 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_33 (File 33)
+
+NOTE: There were 231 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_34.
+NOTE: The data set WORK.MERGE_BETAS has 238 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_34 (File 34)
+
+NOTE: There were 238 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_35.
+NOTE: The data set WORK.MERGE_BETAS has 245 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_35 (File 35)
+
+NOTE: There were 245 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_36.
+NOTE: The data set WORK.MERGE_BETAS has 252 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_36 (File 36)
+
+NOTE: There were 252 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_37.
+NOTE: The data set WORK.MERGE_BETAS has 259 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_37 (File 37)
+
+NOTE: There were 259 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_38.
+NOTE: The data set WORK.MERGE_BETAS has 266 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_38 (File 38)
+
+NOTE: There were 266 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_39.
+NOTE: The data set WORK.MERGE_BETAS has 273 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_39 (File 39)
+
+NOTE: There were 273 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_40.
+NOTE: The data set WORK.MERGE_BETAS has 280 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_40 (File 40)
+
+NOTE: There were 280 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_41.
+NOTE: The data set WORK.MERGE_BETAS has 287 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_41 (File 41)
+
+NOTE: There were 287 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_42.
+NOTE: The data set WORK.MERGE_BETAS has 294 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_42 (File 42)
+
+NOTE: There were 294 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_43.
+NOTE: The data set WORK.MERGE_BETAS has 301 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_43 (File 43)
+
+NOTE: There were 301 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_44.
+NOTE: The data set WORK.MERGE_BETAS has 308 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_44 (File 44)
+
+NOTE: There were 308 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_45.
+NOTE: The data set WORK.MERGE_BETAS has 315 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_45 (File 45)
+
+NOTE: There were 315 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_46.
+NOTE: The data set WORK.MERGE_BETAS has 322 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_46 (File 46)
+
+NOTE: There were 322 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_47.
+NOTE: The data set WORK.MERGE_BETAS has 329 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.08 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_47 (File 47)
+
+NOTE: There were 329 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_48.
+NOTE: The data set WORK.MERGE_BETAS has 336 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_48 (File 48)
+
+NOTE: There were 336 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_49.
+NOTE: The data set WORK.MERGE_BETAS has 343 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_49 (File 49)
+
+NOTE: There were 343 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_50.
+NOTE: The data set WORK.MERGE_BETAS has 350 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_50 (File 50)
+
+NOTE: There were 350 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_51.
+NOTE: The data set WORK.MERGE_BETAS has 357 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_51 (File 51)
+
+NOTE: There were 357 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_52.
+NOTE: The data set WORK.MERGE_BETAS has 364 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_52 (File 52)
+
+NOTE: There were 364 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_53.
+NOTE: The data set WORK.MERGE_BETAS has 371 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_53 (File 53)
+
+NOTE: There were 371 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_54.
+NOTE: The data set WORK.MERGE_BETAS has 378 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_54 (File 54)
+
+NOTE: There were 378 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_55.
+NOTE: The data set WORK.MERGE_BETAS has 385 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_55 (File 55)
+
+NOTE: There were 385 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_56.
+NOTE: The data set WORK.MERGE_BETAS has 392 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_56 (File 56)
+
+NOTE: There were 392 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_57.
+NOTE: The data set WORK.MERGE_BETAS has 399 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.08 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_57 (File 57)
+
+NOTE: There were 399 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_58.
+NOTE: The data set WORK.MERGE_BETAS has 406 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_58 (File 58)
+
+NOTE: There were 406 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_59.
+NOTE: The data set WORK.MERGE_BETAS has 413 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_59 (File 59)
+
+NOTE: There were 413 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_60.
+NOTE: The data set WORK.MERGE_BETAS has 420 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_60 (File 60)
+
+NOTE: There were 420 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_61.
+NOTE: The data set WORK.MERGE_BETAS has 427 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_61 (File 61)
+
+NOTE: There were 427 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_62.
+NOTE: The data set WORK.MERGE_BETAS has 434 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_62 (File 62)
+
+NOTE: There were 434 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_63.
+NOTE: The data set WORK.MERGE_BETAS has 441 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_63 (File 63)
+
+NOTE: There were 441 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_64.
+NOTE: The data set WORK.MERGE_BETAS has 448 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_64 (File 64)
+
+NOTE: There were 448 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_65.
+NOTE: The data set WORK.MERGE_BETAS has 455 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_65 (File 65)
+
+NOTE: There were 455 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_66.
+NOTE: The data set WORK.MERGE_BETAS has 462 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_66 (File 66)
+
+NOTE: There were 462 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_67.
+NOTE: The data set WORK.MERGE_BETAS has 469 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_67 (File 67)
+
+NOTE: There were 469 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_68.
+NOTE: The data set WORK.MERGE_BETAS has 476 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_68 (File 68)
+
+NOTE: There were 476 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_69.
+NOTE: The data set WORK.MERGE_BETAS has 483 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_69 (File 69)
+
+NOTE: There were 483 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_70.
+NOTE: The data set WORK.MERGE_BETAS has 490 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_70 (File 70)
+
+NOTE: There were 490 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_71.
+NOTE: The data set WORK.MERGE_BETAS has 497 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_71 (File 71)
+
+NOTE: There were 497 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_72.
+NOTE: The data set WORK.MERGE_BETAS has 504 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_72 (File 72)
+
+NOTE: There were 504 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_73.
+NOTE: The data set WORK.MERGE_BETAS has 511 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_73 (File 73)
+
+NOTE: There were 511 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_74.
+NOTE: The data set WORK.MERGE_BETAS has 518 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_74 (File 74)
+
+NOTE: There were 518 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_75.
+NOTE: The data set WORK.MERGE_BETAS has 525 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_75 (File 75)
+
+NOTE: There were 525 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_76.
+NOTE: The data set WORK.MERGE_BETAS has 532 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_76 (File 76)
+
+NOTE: There were 532 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_77.
+NOTE: The data set WORK.MERGE_BETAS has 539 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_77 (File 77)
+
+NOTE: There were 539 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_78.
+NOTE: The data set WORK.MERGE_BETAS has 546 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_78 (File 78)
+
+NOTE: There were 546 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_79.
+NOTE: The data set WORK.MERGE_BETAS has 553 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_79 (File 79)
+
+NOTE: There were 553 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_80.
+NOTE: The data set WORK.MERGE_BETAS has 560 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_80 (File 80)
+
+NOTE: There were 560 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_81.
+NOTE: The data set WORK.MERGE_BETAS has 567 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_81 (File 81)
+
+NOTE: There were 567 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_82.
+NOTE: The data set WORK.MERGE_BETAS has 574 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_82 (File 82)
+
+NOTE: There were 574 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_83.
+NOTE: The data set WORK.MERGE_BETAS has 581 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.03 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_83 (File 83)
+
+NOTE: There were 581 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_84.
+NOTE: The data set WORK.MERGE_BETAS has 588 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_84 (File 84)
+
+NOTE: There were 588 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_85.
+NOTE: The data set WORK.MERGE_BETAS has 595 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_85 (File 85)
+
+NOTE: There were 595 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_86.
+NOTE: The data set WORK.MERGE_BETAS has 602 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_86 (File 86)
+
+NOTE: There were 602 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_87.
+NOTE: The data set WORK.MERGE_BETAS has 609 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_87 (File 87)
+
+NOTE: There were 609 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_88.
+NOTE: The data set WORK.MERGE_BETAS has 616 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_88 (File 88)
+
+NOTE: There were 616 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_89.
+NOTE: The data set WORK.MERGE_BETAS has 623 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_89 (File 89)
+
+NOTE: There were 623 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_90.
+NOTE: The data set WORK.MERGE_BETAS has 630 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_90 (File 90)
+
+NOTE: There were 630 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_91.
+NOTE: The data set WORK.MERGE_BETAS has 637 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_91 (File 91)
+
+NOTE: There were 637 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_92.
+NOTE: The data set WORK.MERGE_BETAS has 644 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_92 (File 92)
+
+NOTE: There were 644 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_93.
+NOTE: The data set WORK.MERGE_BETAS has 651 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_93 (File 93)
+
+NOTE: There were 651 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_94.
+NOTE: The data set WORK.MERGE_BETAS has 658 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_94 (File 94)
+
+NOTE: There were 658 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_95.
+NOTE: The data set WORK.MERGE_BETAS has 665 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_95 (File 95)
+
+NOTE: There were 665 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_96.
+NOTE: The data set WORK.MERGE_BETAS has 672 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_96 (File 96)
+
+NOTE: There were 672 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_97.
+NOTE: The data set WORK.MERGE_BETAS has 679 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_97 (File 97)
+
+NOTE: There were 679 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_98.
+NOTE: The data set WORK.MERGE_BETAS has 686 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_98 (File 98)
+
+NOTE: There were 686 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set MISSOUT.IND_RR_GLM_99.
+NOTE: The data set WORK.MERGE_BETAS has 693 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_99 (File 99)
+
+NOTE: There were 693 observations read from the data set WORK.MERGE_BETAS.
+NOTE: There were 7 observations read from the data set 
+      MISSOUT.IND_RR_GLM_100.
+NOTE: The data set WORK.MERGE_BETAS has 700 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: Successfully merged dataset missout.ind_rr_glm_100 (File 100)
+NOTE: Total datasets merged: 100 out of 100 possible files
+NOTE: Table WORK.BETAS_SAMP_POP created, with 700 rows and 7 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP has 700 observations and 9 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set WORK.BETAS_SAMP_POP.
+NOTE: The data set WORK.BETAS_SAMP_POP_ has 700 observations and 13 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 700 observations read from the data set 
+      WORK.BETAS_SAMP_POP_.
+NOTE: The data set WORK.OUTPUT_1 has 7 observations and 11 variables.
+NOTE: PROCEDURE MEANS used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.03 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT_1.
+NOTE: The data set WORK.OUTPUT has 7 observations and 13 variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 7 observations read from the data set WORK.OUTPUT.
+NOTE: The data set OUTPATH.MISSOUT_IND_RR_GLM_ has 7 observations and 13 
+      variables.
+NOTE: DATA statement used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: Deleting WORK.MERGE_BETAS (memtype=DATA).
+NOTE: Deleting WORK.BETAS_SAMP_POP (memtype=DATA).
+NOTE: Deleting WORK.BETAS_SAMP_POP_ (memtype=DATA).
+NOTE: Deleting WORK.OUTPUT_1 (memtype=DATA).
+NOTE: Deleting WORK.OUTPUT (memtype=DATA).
+NOTE: PROCEDURE DATASETS used (Total process time):
+      real time           0.04 seconds
+      cpu time            0.01 seconds
+      
+
+150  
+151  proc printto; run;
+

@@ -1,11 +1,11 @@
 %include "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\scripts\_init.sas";
 
-%let datapath = J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\data\sample_miss20pct\;
+%let datapath = J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\data\sample_miss50pct\;
 libname sampmiss "&datapath.";
 libname missout "J:\HCHS\STATISTICS\GRAS\Beibo\Computing Requests\HCHS_simulation\data\derived\betas\with_miss\";
 
-proc printto log = "&homepath./logs/s4_genmod_20miss_&sysdate..log"
-             print= "&homepath./lst/s4_genmod_20miss_&sysdate..lst" new;
+proc printto log = "&homepath./logs/s4_genmod_50miss_&sysdate..log"
+             print= "&homepath./lst/s4_genmod_50miss_&sysdate..lst" new;
 run;
 
 
@@ -197,8 +197,8 @@ run;
 %mend impute_genmod;
 
 /* miss_ind_mar */
-/*%impute_genmod(start=1, end=100, corr = ind, rr_glm = IPW_V3_ACROSS_VISIT_v1);*/
 %impute_genmod(start=1, end=100, corr = ind, rr_glm = IPW_V3_ACROSS_VISIT_v2);
+/*%impute_genmod(start=101, end=500, corr = ind, rr_glm = IPW_V3_ACROSS_VISIT_v2);*/
 
 
 proc printto;
