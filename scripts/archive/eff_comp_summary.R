@@ -1,3 +1,4 @@
+# Cross-Scenario Efficiency Ranking - Single Comprehensive Comparison Table
 # Load required libraries
 library(readxl)
 library(dplyr)
@@ -9,13 +10,11 @@ library(openxlsx)
 main_path <- "J://HCHS//STATISTICS//GRAS//Beibo//Computing Requests//HCHS_simulation//"
 file_path <- paste0(main_path, "output//alex//GENMOD - GEE Results.xlsx")
 
-threshold <- 0.01
-
 # Read data
 method_codes <- read_excel(file_path, sheet = "Method Codes")
 batch_output <- read_excel(file_path, sheet = "Batch Output")
 
-# Enhanced function to parse method specifications
+# Function to parse method specifications
 create_method_mapping <- function(method_codes) {
   
   method_mapping <- method_codes %>%
@@ -66,22 +65,14 @@ create_method_mapping <- function(method_codes) {
         TRUE ~ "Continuous"
       ),
       
-      # Extract visit restriction
-      visit_restriction = case_when(
-        str_detect(Spec, "NOMISS V3") ~ "V3_restricted",
-        str_detect(Spec, "bghhsub_s2_v3_nr") ~ "V3_restricted", 
-        str_detect(Spec, "bghhsub_s2_nr") ~ "visit_specific",
-        TRUE ~ "full_sample"
-      ),
-      
       # Create scenario description
       scenario_desc = case_when(
-        scenario == 1 ~ "MI + V1 Weight (Full Sample)",
-        scenario == 2 ~ "No MI + V1 Weight (Full Sample)", 
-        scenario == 3 ~ "MI + V3 Adjusted Weight (Restricted Sample)",
-        scenario == 4 ~ "No MI + V3 Adjusted Weight (Restricted Sample)",
-        scenario == 5 ~ "MI + Visit-specific Weights (Full Sample)",
-        scenario == 6 ~ "No MI + Visit-specific Weights (Full Sample)",
+        scenario == 1 ~ "S1: MI + V1 Weight (Full Sample)",
+        scenario == 2 ~ "S2: No MI + V1 Weight (Full Sample)", 
+        scenario == 3 ~ "S3: MI + V3 Adjusted Weight (Restricted Sample)",
+        scenario == 4 ~ "S4: No MI + V3 Adjusted Weight (Restricted Sample)",
+        scenario == 5 ~ "S5: MI + Visit-specific Weights (Full Sample)",
+        scenario == 6 ~ "S6: No MI + Visit-specific Weights (Full Sample)",
         TRUE ~ paste("Scenario", scenario)
       )
     )
@@ -89,8 +80,8 @@ create_method_mapping <- function(method_codes) {
   return(method_mapping)
 }
 
-# Function to prepare data for efficiency comparison
-prepare_efficiency_data <- function(batch_output, method_mapping) {
+# Function to prepare data for cross-scenario efficiency comparison
+prepare_cross_scenario_data <- function(batch_output, method_mapping) {
   
   # Handle multiple rows per suffix-parameter combination
   batch_output_with_id <- batch_output %>%
@@ -121,427 +112,306 @@ prepare_efficiency_data <- function(batch_output, method_mapping) {
   return(efficiency_data)
 }
 
-# Simplified function to calculate relative SE differences
-calculate_se_differences <- function(efficiency_data) {
+# CORRECTED Function to create cross-scenario efficiency rankings
+create_efficiency_rankings_corrected <- function(efficiency_data) {
   
-  cat("Starting SE difference calculations...\n")
+  cat("Creating efficiency rankings across scenarios...\n")
   
-  # Get available procedures dynamically
-  available_procs <- unique(efficiency_data$proc_type)
-  cat("Available procedures:", paste(available_procs, collapse = ", "), "\n")
+  # Available weight methods in data
+  available_methods <- unique(efficiency_data$weight_method)
+  cat("Available weight methods in data:", paste(available_methods, collapse = ", "), "\n")
   
-  # Check what correlation indicators we actually have
-  cat("Available group values (correlation indicators):", paste(unique(efficiency_data$group), collapse = ", "), "\n")
-  cat("Available correlation values:", paste(unique(efficiency_data$correlation), collapse = ", "), "\n")
+  all_rankings <- list()
   
-  # Define comparison sets
-  comparison_sets <- list(
-    "Set1" = list(
-      reference = "RR_glm",
-      comparisons = c("RR_NRadj")
-    ),
-    "Set2" = list(
-      reference = "RR_glm_strat", 
-      comparisons = c("RR_glm_agestrat_strat", "RR_NRadj_strat")
-    )
-  )
+  # Create all unique combinations of method, outcome, correlation, procedure, and parameter
+  unique_combinations <- efficiency_data %>%
+    distinct(weight_method, outcome_type, correlation, proc_type, Parm) %>%
+    arrange(weight_method, outcome_type, correlation, proc_type, Parm)
   
-  all_comparisons <- list()
-  comparison_count <- 0
+  cat("Found", nrow(unique_combinations), "unique combinations to rank\n")
   
-  # Loop through each comparison set
-  for (set_name in names(comparison_sets)) {
-    ref_method <- comparison_sets[[set_name]]$reference
-    comp_methods <- comparison_sets[[set_name]]$comparisons
+  # For each unique combination, rank the scenarios
+  for (i in 1:nrow(unique_combinations)) {
+    combo <- unique_combinations[i, ]
     
-    cat("\nProcessing comparison set:", set_name, "- Reference method:", ref_method, "\n")
+    # Filter data for this specific combination
+    combo_data <- efficiency_data %>%
+      filter(weight_method == combo$weight_method,
+             outcome_type == combo$outcome_type,
+             correlation == combo$correlation,
+             proc_type == combo$proc_type,
+             Parm == combo$Parm) %>%
+      select(scenario, scenario_desc, weight_method, `Empirical SE`) %>%
+      arrange(`Empirical SE`)  # Sort by empirical SE (ascending = best to worst efficiency)
     
-    # Loop through available combinations - use 'group' column for correlation
-    for (outcome in c("Continuous", "Binary")) {
-      for (corr_group in c("IND", "EXCH")) {  # Use actual values from 'group' column
-        for (proc in available_procs) {
-          
-          # Create readable correlation name for output
-          corr_name <- ifelse(corr_group == "IND", "Independent", "Exchangeable")
-          
-          # Get reference data - filter by 'group' column instead of 'correlation'
-          ref_data <- efficiency_data %>%
-            filter(outcome_type == outcome, 
-                   group == corr_group,  # Use 'group' column
-                   proc_type == proc,
-                   weight_method == ref_method) %>%
-            select(scenario, Parm, `Empirical SE`) %>%
-            rename(ref_se = `Empirical SE`)
-          
-          if (nrow(ref_data) == 0) {
-            cat("  No reference data for:", outcome, corr_name, proc, ref_method, "\n")
-            next
-          } else {
-            cat("  Found", nrow(ref_data), "reference rows for:", outcome, corr_name, proc, ref_method, "\n")
-          }
-          
-          # Compare each method to reference
-          for (comp_method in comp_methods) {
-            comp_data <- efficiency_data %>%
-              filter(outcome_type == outcome,
-                     group == corr_group,  # Use 'group' column
-                     proc_type == proc,
-                     weight_method == comp_method) %>%
-              select(scenario, Parm, `Empirical SE`) %>%
-              rename(comp_se = `Empirical SE`)
-            
-            if (nrow(comp_data) == 0) {
-              cat("    No comparison data for:", outcome, corr_name, proc, comp_method, "\n")
-              next
-            } else {
-              cat("    Found", nrow(comp_data), "comparison rows for:", outcome, corr_name, proc, comp_method, "\n")
-            }
-            
-            # Calculate relative differences
-            comparison_result <- ref_data %>%
-              inner_join(comp_data, by = c("scenario", "Parm")) %>%
-              mutate(
-                relative_se_diff = (comp_se - ref_se) / ref_se,
-                relative_se_diff_pct = relative_se_diff * 100,
-                # MODIFIED: Create separate efficiency issue indicators for positive and negative
-                efficiency_issue_abs = ifelse(abs(relative_se_diff) > threshold, 1, 0),
-                efficiency_issue_pos = ifelse(relative_se_diff > threshold, 1, 0),
-                efficiency_issue_neg = ifelse(relative_se_diff < -threshold, 1, 0),
-                comparison_set = set_name,
-                outcome_type = outcome,
-                correlation = corr_name,  # Use readable name for output
-                proc_type = proc,
-                reference_method = ref_method,
-                comparison_method = comp_method
-              ) %>%
-              # Add verification columns for debugging
-              mutate(
-                manual_calc = (comp_se - ref_se) / ref_se * 100,
-                diff_check = abs(relative_se_diff_pct - manual_calc)
-              )
-            
-            if (nrow(comparison_result) > 0) {
-              
-              # Debug: Show a few sample calculations
-              if (comparison_count == 0) {  # Only show for first comparison
-                cat("      Debug - Sample calculations:\n")
-                debug_sample <- comparison_result %>% 
-                  head(3) %>%
-                  select(Parm, ref_se, comp_se, relative_se_diff_pct, manual_calc, diff_check)
-                print(debug_sample)
-              }
-              
-              comparison_key <- paste(set_name, outcome, corr_name, proc, comp_method, sep = "_")
-              all_comparisons[[comparison_key]] <- comparison_result
-              comparison_count <- comparison_count + 1
-              cat("      ✓ Successfully created comparison:", comparison_key, "with", nrow(comparison_result), "rows\n")
-            }
-          }
-        }
-      }
+    if (nrow(combo_data) > 1) {  # Need at least 2 scenarios to rank
+      
+      # Add ranking information
+      combo_ranking <- combo_data %>%
+        mutate(
+          rank = row_number(),
+          efficiency_rank = case_when(
+            rank == 1 ~ "Best",
+            rank == nrow(combo_data) ~ "Worst",
+            TRUE ~ paste0("Rank ", rank)
+          ),
+          weight_method = combo$weight_method,
+          outcome_type = combo$outcome_type,
+          correlation = combo$correlation,
+          proc_type = combo$proc_type,
+          parameter = combo$Parm,
+          total_scenarios = nrow(combo_data)
+        ) %>%
+        arrange(rank)
+      
+      # Create a unique key for this combination
+      combo_key <- paste(combo$weight_method, combo$outcome_type, combo$correlation, 
+                         combo$proc_type, combo$Parm, sep = "_")
+      all_rankings[[combo_key]] <- combo_ranking
     }
   }
   
-  # Combine all comparisons
-  if (length(all_comparisons) > 0) {
-    combined_comparisons <- bind_rows(all_comparisons)
-    cat("\nTotal successful comparisons:", comparison_count, "\n")
-    cat("Total combined comparison rows:", nrow(combined_comparisons), "\n")
+  # Combine all rankings
+  if (length(all_rankings) > 0) {
+    combined_rankings <- bind_rows(all_rankings)
+    cat("Created rankings for", length(all_rankings), "parameter combinations\n")
+    cat("Total ranking rows:", nrow(combined_rankings), "\n")
   } else {
-    combined_comparisons <- data.frame()
-    cat("\nNo successful comparisons created!\n")
+    combined_rankings <- data.frame()
+    cat("No rankings could be created!\n")
   }
   
-  return(combined_comparisons)
+  return(combined_rankings)
 }
 
-# MODIFIED: Function to create summary tables for efficiency issues with pos/neg counts
-create_efficiency_summary <- function(se_comparisons) {
+# Function to create single comprehensive comparison table
+create_single_comprehensive_table <- function(rankings_data) {
   
-  if (nrow(se_comparisons) == 0) {
-    return(data.frame())
-  }
+  cat("Creating single comprehensive comparison table...\n")
   
-  # Create summary by comparison set, scenario, outcome, correlation, and procedure
-  efficiency_summary <- se_comparisons %>%
-    group_by(comparison_set, scenario, outcome_type, correlation, proc_type, 
-             reference_method, comparison_method) %>%
+  # Create the comprehensive table with average ranks across all conditions
+  comprehensive_table <- rankings_data %>%
+    # Create a combined identifier for each condition (RR method + outcome + correlation)
+    unite("condition", weight_method, outcome_type, correlation, sep = "_", remove = FALSE) %>%
+    group_by(scenario, scenario_desc, condition, weight_method, outcome_type, correlation) %>%
     summarise(
-      total_comparisons = n(),
-      # MODIFIED: Calculate separate positive and negative efficiency issues
-      efficiency_issues_pos = sum(efficiency_issue_pos, na.rm = TRUE),
-      efficiency_issues_neg = sum(efficiency_issue_neg, na.rm = TRUE),
-      efficiency_issues_total = sum(efficiency_issue_abs, na.rm = TRUE),
-      mean_rel_se_diff_pct = mean(relative_se_diff_pct, na.rm = TRUE),
-      median_rel_se_diff_pct = median(relative_se_diff_pct, na.rm = TRUE),
-      max_abs_rel_se_diff_pct = max(abs(relative_se_diff_pct), na.rm = TRUE),
-      min_rel_se_diff_pct = min(relative_se_diff_pct, na.rm = TRUE),
-      max_rel_se_diff_pct = max(relative_se_diff_pct, na.rm = TRUE),
+      avg_rank_in_condition = mean(rank),
+      avg_empirical_se = mean(`Empirical SE`),
+      best_rank_count = sum(rank == 1),
+      total_parameters = n(),
+      best_rank_pct = (best_rank_count / total_parameters) * 100,
       .groups = "drop"
     ) %>%
+    # Create the wide table with columns for each condition
+    pivot_wider(
+      names_from = condition,
+      values_from = c(avg_rank_in_condition, avg_empirical_se, best_rank_pct),
+      names_sep = "__"
+    ) %>%
+    # Calculate overall statistics across all conditions
+    rowwise() %>%
     mutate(
-      # MODIFIED: Create formatted efficiency issue display
-      efficiency_issues_formatted = case_when(
-        efficiency_issues_total == 0 ~ "0",
-        efficiency_issues_pos > 0 & efficiency_issues_neg > 0 ~ paste0("+", efficiency_issues_pos, " -", efficiency_issues_neg),
-        efficiency_issues_pos > 0 & efficiency_issues_neg == 0 ~ paste0("+", efficiency_issues_pos),
-        efficiency_issues_pos == 0 & efficiency_issues_neg > 0 ~ paste0("-", efficiency_issues_neg),
-        TRUE ~ as.character(efficiency_issues_total)
-      ),
-      efficiency_issue_rate = efficiency_issues_total / total_comparisons,
-      comparison_label = paste0(comparison_method, " vs ", reference_method)
-    )
+      # Calculate average rank across all conditions
+      overall_avg_rank = mean(c_across(starts_with("avg_rank_in_condition")), na.rm = TRUE),
+      # Calculate average empirical SE across all conditions  
+      overall_avg_empirical_se = mean(c_across(starts_with("avg_empirical_se")), na.rm = TRUE),
+      # Calculate average best rank percentage across all conditions
+      overall_avg_best_pct = mean(c_across(starts_with("best_rank_pct")), na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    # Arrange by overall performance
+    arrange(overall_avg_rank) %>%
+    # Clean up column names and reorder
+    select(scenario, scenario_desc, overall_avg_rank, overall_avg_empirical_se, overall_avg_best_pct, everything())
   
-  return(efficiency_summary)
+  return(comprehensive_table)
 }
 
-# Function to create detailed efficiency comparison tables
-create_detailed_efficiency_tables <- function(se_comparisons) {
+# Function to create summary statistics table
+create_summary_statistics <- function(rankings_data) {
   
-  if (nrow(se_comparisons) == 0) {
-    return(list())
-  }
+  # Overall summary by scenario
+  overall_summary <- rankings_data %>%
+    group_by(scenario, scenario_desc) %>%
+    summarise(
+      total_comparisons = n(),
+      overall_avg_rank = mean(rank),
+      overall_best_count = sum(rank == 1),
+      overall_best_pct = (overall_best_count / total_comparisons) * 100,
+      overall_avg_empirical_se = mean(`Empirical SE`),
+      .groups = "drop"
+    ) %>%
+    arrange(overall_avg_rank)
   
-  tables <- list()
+  # Summary by RR method
+  by_rr_method <- rankings_data %>%
+    group_by(weight_method, scenario, scenario_desc) %>%
+    summarise(
+      avg_rank = mean(rank),
+      best_pct = (sum(rank == 1) / n()) * 100,
+      avg_empirical_se = mean(`Empirical SE`),
+      .groups = "drop"
+    ) %>%
+    group_by(weight_method) %>%
+    slice_min(avg_rank, n = 1) %>%
+    ungroup() %>%
+    arrange(weight_method)
   
-  # Create tables for each comparison set and scenario
-  for (set_name in unique(se_comparisons$comparison_set)) {
-    for (scenario_num in unique(se_comparisons$scenario)) {
-      
-      set_scenario_data <- se_comparisons %>%
-        filter(comparison_set == set_name, scenario == scenario_num)
-      
-      # Create separate tables for each outcome and procedure combination
-      for (outcome in unique(set_scenario_data$outcome_type)) {
-        for (proc in unique(set_scenario_data$proc_type)) {
-          
-          table_name <- paste0(set_name, "_S", scenario_num, "_", outcome, "_", proc, "_Efficiency")
-          
-          filtered_data <- set_scenario_data %>%
-            filter(outcome_type == outcome, proc_type == proc) %>%
-            select(scenario, Parm, correlation, reference_method, comparison_method,
-                   ref_se, comp_se, relative_se_diff_pct, efficiency_issue_pos, efficiency_issue_neg) %>%
-            arrange(correlation, comparison_method, Parm)
-          
-          if (nrow(filtered_data) > 0) {
-            tables[[table_name]] <- filtered_data
-          }
-        }
-      }
-    }
-  }
+  # Summary by outcome type
+  by_outcome <- rankings_data %>%
+    group_by(outcome_type, scenario, scenario_desc) %>%
+    summarise(
+      avg_rank = mean(rank),
+      best_pct = (sum(rank == 1) / n()) * 100,
+      avg_empirical_se = mean(`Empirical SE`),
+      .groups = "drop"
+    ) %>%
+    group_by(outcome_type) %>%
+    slice_min(avg_rank, n = 1) %>%
+    ungroup() %>%
+    arrange(outcome_type)
   
-  return(tables)
-}
-
-# MODIFIED: Function to create comprehensive efficiency summary with formatted counts
-create_comprehensive_efficiency_summary <- function(efficiency_summary) {
+  # Summary by correlation type
+  by_correlation <- rankings_data %>%
+    group_by(correlation, scenario, scenario_desc) %>%
+    summarise(
+      avg_rank = mean(rank),
+      best_pct = (sum(rank == 1) / n()) * 100,
+      avg_empirical_se = mean(`Empirical SE`),
+      .groups = "drop"
+    ) %>%
+    group_by(correlation) %>%
+    slice_min(avg_rank, n = 1) %>%
+    ungroup() %>%
+    arrange(correlation)
   
-  if (nrow(efficiency_summary) == 0) {
-    return(list())
-  }
-  
-  summary_tables <- list()
-  
-  # Create separate tables for each comparison set
-  for (set_name in unique(efficiency_summary$comparison_set)) {
-    
-    set_data <- efficiency_summary %>%
-      filter(comparison_set == set_name)
-    
-    # MODIFIED: Create a wide table using the formatted efficiency issues
-    set_table <- set_data %>%
-      select(scenario, outcome_type, proc_type, correlation, 
-             comparison_label, efficiency_issues_formatted) %>%
-      unite("method_combo", outcome_type, proc_type, correlation, comparison_label, sep = "_") %>%
-      select(scenario, method_combo, efficiency_issues_formatted) %>%
-      pivot_wider(
-        names_from = method_combo,
-        values_from = efficiency_issues_formatted,
-        values_fill = "0"
-      ) %>%
-      arrange(scenario)
-    
-    summary_tables[[paste0(set_name, "_Summary")]] <- set_table
-  }
-  
-  return(summary_tables)
-}
-
-# MODIFIED: Function to create scenario-specific summary tables with formatted counts
-create_scenario_summary_tables <- function(efficiency_summary) {
-  
-  if (nrow(efficiency_summary) == 0) {
-    return(list())
-  }
-  
-  scenario_tables <- list()
-  
-  # Create separate summary tables for each scenario and comparison set
-  for (scenario_num in unique(efficiency_summary$scenario)) {
-    for (set_name in unique(efficiency_summary$comparison_set)) {
-      
-      scenario_set_data <- efficiency_summary %>%
-        filter(scenario == scenario_num, comparison_set == set_name)
-      
-      if (nrow(scenario_set_data) == 0) next
-      
-      # MODIFIED: Create a wide table using formatted efficiency issues
-      scenario_table <- scenario_set_data %>%
-        select(outcome_type, proc_type, correlation, 
-               comparison_label, efficiency_issues_formatted) %>%
-        unite("method_combo", outcome_type, proc_type, correlation, comparison_label, sep = "_") %>%
-        select(method_combo, efficiency_issues_formatted) %>%
-        pivot_wider(
-          names_from = method_combo,
-          values_from = efficiency_issues_formatted,
-          values_fill = "0"
-        )
-      
-      table_name <- paste0("S", scenario_num, "_", set_name, "_Summary")
-      scenario_tables[[table_name]] <- scenario_table
-    }
-  }
-  
-  return(scenario_tables)
+  return(list(
+    overall = overall_summary,
+    by_rr_method = by_rr_method,
+    by_outcome = by_outcome,
+    by_correlation = by_correlation
+  ))
 }
 
 # Main execution
-cat("=== Starting Efficiency Analysis ===\n")
+cat("=== Starting Single Comprehensive Efficiency Ranking Analysis ===\n")
 
 # Create method mapping
 cat("Creating method mapping...\n")
 method_mapping <- create_method_mapping(method_codes)
 
-# Debug: Check method mapping
-cat("Method mapping created with", nrow(method_mapping), "rows\n")
-cat("Unique weight methods found:", paste(unique(method_mapping$weight_method), collapse = ", "), "\n")
+# Prepare cross-scenario data
+cat("Preparing cross-scenario efficiency data...\n")
+efficiency_data <- prepare_cross_scenario_data(batch_output, method_mapping)
 
-# Prepare efficiency data
-cat("Preparing efficiency data...\n")
-efficiency_data <- prepare_efficiency_data(batch_output, method_mapping)
+# Debug: Check data availability
+cat("Data preparation complete:\n")
+cat("- Total rows:", nrow(efficiency_data), "\n")
+cat("- Available scenarios:", paste(sort(unique(efficiency_data$scenario)), collapse = ", "), "\n")
+cat("- Available weight methods:", paste(unique(efficiency_data$weight_method), collapse = ", "), "\n")
+cat("- Available parameters:", paste(unique(efficiency_data$Parm), collapse = ", "), "\n")
+cat("- Available outcome types:", paste(unique(efficiency_data$outcome_type), collapse = ", "), "\n")
+cat("- Available correlations:", paste(unique(efficiency_data$correlation), collapse = ", "), "\n")
+cat("- Available procedures:", paste(unique(efficiency_data$proc_type), collapse = ", "), "\n")
 
-# Debug: Check efficiency data
-cat("Efficiency data prepared with", nrow(efficiency_data), "rows\n")
+# Create efficiency rankings using corrected function
+cat("Creating efficiency rankings...\n")
+rankings_data_corrected <- create_efficiency_rankings_corrected(efficiency_data)
 
-# Calculate SE differences
-cat("Calculating SE differences...\n")
-se_comparisons <- calculate_se_differences(efficiency_data)
-
-# Create output based on whether we have comparisons
-if (nrow(se_comparisons) > 0) {
+if (nrow(rankings_data_corrected) > 0) {
   
-  # Create summary tables
-  cat("Creating efficiency summaries...\n")
-  efficiency_summary <- create_efficiency_summary(se_comparisons)
+  cat("SUCCESS! Creating single comprehensive comparison table...\n")
   
-  # Create detailed tables
-  cat("Creating detailed efficiency tables...\n")
-  detailed_efficiency_tables <- create_detailed_efficiency_tables(se_comparisons)
+  # Create the single comprehensive table
+  comprehensive_table <- create_single_comprehensive_table(rankings_data_corrected)
+  summary_statistics <- create_summary_statistics(rankings_data_corrected)
   
-  # Create comprehensive summary
-  cat("Creating comprehensive efficiency summary...\n")
-  comprehensive_efficiency_summary <- create_comprehensive_efficiency_summary(efficiency_summary)
+  cat("Creating Excel workbook with single comprehensive table...\n")
   
-  # Create scenario-specific summary tables
-  cat("Creating scenario-specific summary tables...\n")
-  scenario_summary_tables <- create_scenario_summary_tables(efficiency_summary)
-  
-  # Create Excel output
-  output_file <- paste0(main_path, "output//Efficiency_Comparison_Results_PosNeg.xlsx")
+  # Create Excel output with single comprehensive table
+  output_file <- paste0(main_path, "output//Single_Comprehensive_Efficiency_Comparison.xlsx")
   wb <- createWorkbook()
   
-  # Add comparison set summaries (Set1 and Set2 separate)
-  for (summary_name in names(comprehensive_efficiency_summary)) {
-    sheet_name <- substr(summary_name, 1, 31) # Excel sheet name limit
-    addWorksheet(wb, sheet_name)
-    writeData(wb, sheet_name, comprehensive_efficiency_summary[[summary_name]])
-  }
+  # Add the main comprehensive comparison table
+  addWorksheet(wb, "Comprehensive_Comparison")
+  writeData(wb, "Comprehensive_Comparison", comprehensive_table)
   
-  # Add scenario-specific summary tables (separated by comparison set)
-  for (scenario_name in names(scenario_summary_tables)) {
-    sheet_name <- substr(scenario_name, 1, 31) # Excel sheet name limit
-    addWorksheet(wb, sheet_name)
-    writeData(wb, sheet_name, scenario_summary_tables[[scenario_name]])
-  }
+  # Add summary statistics
+  addWorksheet(wb, "Overall_Summary")
+  writeData(wb, "Overall_Summary", summary_statistics$overall)
   
-  # Add efficiency summary table
-  addWorksheet(wb, "Efficiency_Summary_Stats")
-  writeData(wb, "Efficiency_Summary_Stats", efficiency_summary)
+  addWorksheet(wb, "Best_by_RR_Method")
+  writeData(wb, "Best_by_RR_Method", summary_statistics$by_rr_method)
   
-  # Add detailed comparison tables
-  for (table_name in names(detailed_efficiency_tables)) {
-    sheet_name <- substr(table_name, 1, 31) # Excel sheet name limit
-    addWorksheet(wb, sheet_name)
-    writeData(wb, sheet_name, detailed_efficiency_tables[[table_name]])
-  }
+  addWorksheet(wb, "Best_by_Outcome_Type")
+  writeData(wb, "Best_by_Outcome_Type", summary_statistics$by_outcome)
   
-  # Add raw comparison data for reference
-  addWorksheet(wb, "Raw_SE_Comparisons")
-  writeData(wb, "Raw_SE_Comparisons", se_comparisons)
+  addWorksheet(wb, "Best_by_Correlation")
+  writeData(wb, "Best_by_Correlation", summary_statistics$by_correlation)
+  
+  # Add raw rankings data for reference
+  addWorksheet(wb, "Raw_Rankings_Data")
+  writeData(wb, "Raw_Rankings_Data", rankings_data_corrected)
   
   # Save the workbook
   saveWorkbook(wb, output_file, overwrite = TRUE)
   
-  cat("=== Analysis Complete ===\n")
-  cat("Efficiency comparison results saved to:", output_file, "\n")
+  cat("=== SINGLE COMPREHENSIVE ANALYSIS COMPLETE ===\n")
+  cat("Single comprehensive efficiency comparison saved to:", output_file, "\n")
   
-  # Display summary information
-  cat("\n=== SUMMARY OF EFFICIENCY ANALYSIS ===\n")
-  cat("Excel file contains multiple sheets with positive/negative efficiency issue counts:\n")
+  # Display key insights from the comprehensive table
+  cat("\n=== KEY INSIGHTS FROM SINGLE COMPREHENSIVE TABLE ===\n")
   
-  # Show preview of key results with formatted counts
-  cat("\n=== PREVIEW OF COMPREHENSIVE EFFICIENCY SUMMARY (with +/- counts) ===\n")
-  print(comprehensive_efficiency_summary)
+  cat("\n1. OVERALL BEST PERFORMING SCENARIOS (across ALL conditions):\n")
+  top_3_overall <- comprehensive_table %>% head(3)
+  for (i in 1:nrow(top_3_overall)) {
+    cat(paste0("   Rank ", i, ": ", top_3_overall$scenario_desc[i], 
+               " (Overall Avg Rank: ", round(top_3_overall$overall_avg_rank[i], 2), 
+               ", Avg Best %: ", round(top_3_overall$overall_avg_best_pct[i], 1), "%)\n"))
+  }
   
-  cat("\n=== PREVIEW OF EFFICIENCY SUMMARY STATS (with detailed +/- breakdown) ===\n")
-  preview_summary <- efficiency_summary %>%
-    select(comparison_set, scenario, outcome_type, correlation, proc_type, 
-           comparison_label, efficiency_issues_formatted, efficiency_issues_pos, efficiency_issues_neg)
-  print(head(preview_summary, 10))
+  cat("\n2. BEST SCENARIO BY CATEGORY:\n")
   
-  # Show some key statistics with positive/negative breakdown
-  cat("\n=== KEY EFFICIENCY STATISTICS (with +/- breakdown) ===\n")
+  # Best by RR method
+  cat("Best scenario by RR method:\n")
+  for (i in 1:nrow(summary_statistics$by_rr_method)) {
+    row <- summary_statistics$by_rr_method[i, ]
+    cat(paste0("   ", row$weight_method, ": ", row$scenario_desc, 
+               " (Avg Rank: ", round(row$avg_rank, 2), ")\n"))
+  }
   
-  # Count total efficiency issues by comparison set and scenario with pos/neg breakdown
-  total_issues <- se_comparisons %>%
-    group_by(comparison_set, scenario) %>%
-    summarise(
-      total_pos_issues = sum(efficiency_issue_pos, na.rm = TRUE),
-      total_neg_issues = sum(efficiency_issue_neg, na.rm = TRUE),
-      total_abs_issues = sum(efficiency_issue_abs, na.rm = TRUE),
-      total_comparisons = n(),
-      issue_rate = total_abs_issues / total_comparisons,
-      .groups = "drop"
-    ) %>%
-    mutate(
-      formatted_issues = case_when(
-        total_abs_issues == 0 ~ "0",
-        total_pos_issues > 0 & total_neg_issues > 0 ~ paste0("+", total_pos_issues, " -", total_neg_issues),
-        total_pos_issues > 0 & total_neg_issues == 0 ~ paste0("+", total_pos_issues),
-        total_pos_issues == 0 & total_neg_issues > 0 ~ paste0("-", total_neg_issues),
-        TRUE ~ as.character(total_abs_issues)
-      )
-    )
+  # Best by outcome type
+  cat("Best scenario by outcome type:\n")
+  for (i in 1:nrow(summary_statistics$by_outcome)) {
+    row <- summary_statistics$by_outcome[i, ]
+    cat(paste0("   ", row$outcome_type, ": ", row$scenario_desc, 
+               " (Avg Rank: ", round(row$avg_rank, 2), ")\n"))
+  }
   
-  cat("Total efficiency issues by comparison set and scenario (format: +positive -negative):\n")
-  print(total_issues %>% select(comparison_set, scenario, formatted_issues, issue_rate))
+  # Best by correlation type
+  cat("Best scenario by correlation type:\n")
+  for (i in 1:nrow(summary_statistics$by_correlation)) {
+    row <- summary_statistics$by_correlation[i, ]
+    cat(paste0("   ", row$correlation, ": ", row$scenario_desc, 
+               " (Avg Rank: ", round(row$avg_rank, 2), ")\n"))
+  }
   
-  cat("\n=== Analysis completed successfully! ===\n")
-  cat("Note: Efficiency issues are now displayed as:\n")
-  cat("- '0' = no issues\n")
-  cat("- '+X' = X positive issues only\n") 
-  cat("- '-X' = X negative issues only\n")
-  cat("- '+X -Y' = X positive and Y negative issues\n")
+  cat("\n=== COMPREHENSIVE TABLE STRUCTURE ===\n")
+  cat("The main table shows:\n")
+  cat("- Each row = one scenario\n")
+  cat("- Columns for each RR method × outcome type × correlation combination\n")
+  cat("- Three metrics per combination: avg_rank, avg_empirical_se, best_rank_pct\n")
+  cat("- Overall summary columns showing performance across all conditions\n")
+  cat("- Scenarios ranked by overall average rank (lower = better efficiency)\n")
+  
+  cat("\n=== FINAL RECOMMENDATION ===\n")
+  best_overall <- comprehensive_table %>% slice_min(overall_avg_rank, n = 1)
+  cat(paste0("SINGLE BEST SCENARIO ACROSS ALL CONDITIONS: ", best_overall$scenario_desc, "\n"))
+  cat(paste0("- Overall average rank: ", round(best_overall$overall_avg_rank, 2), " (lower is better)\n"))
+  cat(paste0("- Average best performer percentage: ", round(best_overall$overall_avg_best_pct, 1), "%\n"))
+  cat(paste0("- Overall average empirical SE: ", round(best_overall$overall_avg_empirical_se, 3), "\n"))
+  cat("This scenario provides the most consistent efficiency across all RR methods, outcome types, and correlation structures.\n")
   
 } else {
-  cat("ERROR: No comparisons could be created. Please check the data structure.\n")
-  
-  # Show some debugging info
-  cat("\nDebugging information:\n")
-  cat("- Efficiency data rows:", nrow(efficiency_data), "\n")
-  cat("- Available procedures:", paste(unique(efficiency_data$proc_type), collapse = ", "), "\n")
-  cat("- Available weight methods:", paste(unique(efficiency_data$weight_method), collapse = ", "), "\n")
-  cat("- Available outcome types:", paste(unique(efficiency_data$outcome_type), collapse = ", "), "\n")
-  cat("- Available correlations:", paste(unique(efficiency_data$correlation), collapse = ", "), "\n")
+  cat("ERROR: No rankings could be created. Please check the data structure.\n")
 }
